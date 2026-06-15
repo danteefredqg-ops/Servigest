@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ServiGest — Pedidos</title>
+  <link rel="stylesheet" href="../../css/base.css" />
+  <link rel="stylesheet" href="../../css/components.css" />
+  <style>
+    /* ── Kanban de estados ───────────────────────────────────────────────── */
+    .estado-tabs { display:flex; gap:6px; margin-bottom:1rem; flex-wrap:wrap; }
+    .estado-tab  { display:flex; align-items:center; gap:6px; padding:7px 14px; border-radius:var(--radius-md); border:1px solid var(--color-border-md); background:transparent; font-size:13px; color:var(--color-text-muted); cursor:pointer; font-family:inherit; transition:all .1s; }
+    .estado-tab .count { font-size:11px; font-weight:600; padding:1px 6px; border-radius:10px; background:var(--color-bg-tertiary); }
+    .estado-tab.active  { background:var(--color-accent-light); color:var(--color-accent-dark); border-color:var(--color-accent); font-weight:500; }
+    .estado-tab.active .count { background:var(--color-accent); color:#fff; }
+
+    /* ── Item del pedido en modal ────────────────────────────────────────── */
+    .item-row { display:grid; grid-template-columns:1fr 70px 100px 70px auto; gap:8px; align-items:end; margin-bottom:8px; }
+    .item-row-header { display:grid; grid-template-columns:1fr 70px 100px 70px auto; gap:8px; margin-bottom:4px; }
+    .item-row-header span { font-size:11px; font-weight:500; color:var(--color-text-muted); text-transform:uppercase; letter-spacing:.3px; }
+    .item-subtotal { font-size:12px; font-weight:500; color:var(--color-text-muted); text-align:right; margin-top:2px; }
+
+    /* ── Totales del pedido ──────────────────────────────────────────────── */
+    .totales-wrap { background:var(--color-bg-secondary); border-radius:var(--radius-md); padding:12px 14px; margin-top:1rem; }
+    .total-row    { display:flex; justify-content:space-between; font-size:13px; padding:3px 0; }
+    .total-row.grand { font-size:15px; font-weight:600; border-top:1px solid var(--color-border); margin-top:6px; padding-top:8px; }
+
+    /* ── Detalle de pedido (panel lateral) ───────────────────────────────── */
+    .detalle-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:100; }
+    .detalle-overlay.open { display:block; }
+    .detalle-panel { position:fixed; top:0; right:0; height:100vh; width:480px; background:var(--color-bg); box-shadow:-4px 0 20px rgba(0,0,0,.1); overflow-y:auto; padding:1.5rem; display:flex; flex-direction:column; gap:1.25rem; transform:translateX(100%); transition:transform .2s ease; }
+    .detalle-panel.open { transform:translateX(0); }
+    .det-header { display:flex; align-items:center; justify-content:space-between; }
+    .det-section { background:var(--color-bg-secondary); border-radius:var(--radius-md); padding:1rem; }
+    .det-label   { font-size:11px; font-weight:500; text-transform:uppercase; letter-spacing:.4px; color:var(--color-text-muted); margin-bottom:8px; }
+    .det-item    { display:grid; grid-template-columns:1fr 60px 80px 80px; gap:8px; font-size:13px; padding:7px 0; border-bottom:1px solid var(--color-border); align-items:center; }
+    .det-item:last-child { border-bottom:none; }
+    .det-item-header { font-size:10px; font-weight:500; text-transform:uppercase; color:var(--color-text-muted); }
+    .estado-select { font-size:12px; padding:5px 10px; border-radius:var(--radius-md); border:1px solid var(--color-border-md); font-family:inherit; background:var(--color-bg); cursor:pointer; }
+
+    @media(max-width:700px) {
+      .detalle-panel { width:100%; }
+      .item-row { grid-template-columns:1fr 60px 90px auto; }
+      .item-row > .item-desc-col { grid-column:1/-1; }
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="logo"><div class="logo-dot"></div>ServiGest</div>
+    <nav id="sidebar-nav"></nav>
+    <div class="sidebar-user">
+      <div class="user-avatar">--</div>
+      <div><div class="user-name">Cargando...</div><div class="user-empresa"></div></div>
+    </div>
+    <button id="btn-logout" class="btn btn-ghost btn-sm" style="margin-top:8px">Cerrar sesión</button>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Pedidos</h1>
+        <p class="page-subtitle" id="subtitle-fecha"></p>
+      </div>
+      <div class="flex gap-8">
+        <div class="search-wrapper">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="search-input" id="buscador" placeholder="Buscar cliente..." />
+        </div>
+        <button class="btn btn-primary" id="btn-nuevo">+ Nuevo pedido</button>
+      </div>
+    </div>
+
+    <!-- Tabs de estado con conteos -->
+    <div class="estado-tabs" id="estado-tabs">
+      <button class="estado-tab active" data-estado="">
+        Todos <span class="count" id="cnt-todos">0</span>
+      </button>
+      <button class="estado-tab" data-estado="pendiente">
+        Pendientes <span class="count" id="cnt-pendiente">0</span>
+      </button>
+      <button class="estado-tab" data-estado="en_camino">
+        En camino <span class="count" id="cnt-en_camino">0</span>
+      </button>
+      <button class="estado-tab" data-estado="entregado">
+        Entregados <span class="count" id="cnt-entregado">0</span>
+      </button>
+      <button class="estado-tab" data-estado="cancelado">
+        Cancelados <span class="count" id="cnt-cancelado">0</span>
+      </button>
+    </div>
+
+    <!-- Tabla -->
+    <div class="card" style="padding:0">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Cliente</th>
+              <th>Items</th>
+              <th>Subtotal</th>
+              <th>Total</th>
+              <th>Fecha servicio</th>
+              <th>Estado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tabla-pedidos">
+            <tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ── Panel detalle pedido ────────────────────────────────────────────────── -->
+<div class="detalle-overlay" id="det-overlay" onclick="cerrarDetalle()"></div>
+<div class="detalle-panel" id="det-panel">
+  <div class="det-header">
+    <div>
+      <div style="font-size:16px;font-weight:600" id="det-titulo">Pedido</div>
+      <div style="font-size:12px;color:var(--color-text-muted)" id="det-fecha"></div>
+    </div>
+    <div class="flex gap-8">
+      <select class="estado-select" id="det-estado-sel" onchange="cambiarEstado()">
+        <option value="pendiente">Pendiente</option>
+        <option value="en_camino">En camino</option>
+        <option value="entregado">Entregado</option>
+        <option value="cancelado">Cancelado</option>
+      </select>
+      <button class="btn btn-ghost btn-icon" onclick="cerrarDetalle()">✕</button>
+    </div>
+  </div>
+
+  <!-- Cliente -->
+  <div class="det-section">
+    <div class="det-label">Cliente</div>
+    <div style="font-size:14px;font-weight:500" id="det-cliente"></div>
+    <div style="font-size:12px;color:var(--color-text-muted)" id="det-cliente-info"></div>
+  </div>
+
+  <!-- Items -->
+  <div>
+    <div class="det-label" style="margin-bottom:8px">Productos / Servicios</div>
+    <div class="det-item det-item-header">
+      <span>Descripción</span><span style="text-align:center">Cant.</span>
+      <span style="text-align:right">Precio</span><span style="text-align:right">Subtotal</span>
+    </div>
+    <div id="det-items"></div>
+  </div>
+
+  <!-- Totales -->
+  <div class="totales-wrap">
+    <div class="total-row"><span>Subtotal</span><span id="det-subtotal">—</span></div>
+    <div class="total-row"><span>IVA (16%)</span><span id="det-iva">—</span></div>
+    <div class="total-row grand"><span>Total</span><span id="det-total">—</span></div>
+  </div>
+
+  <!-- Notas -->
+  <div id="det-notas-wrap" style="display:none">
+    <div class="det-label">Notas</div>
+    <div style="font-size:13px;color:var(--color-text-muted)" id="det-notas"></div>
+  </div>
+
+  <!-- Acciones -->
+  <div class="flex gap-8" style="margin-top:auto;padding-top:.5rem">
+    <button class="btn btn-secondary" style="flex:1" id="det-btn-factura" onclick="crearFacturaDesdePedido()">
+      Crear factura CFDI
+    </button>
+    <button class="btn btn-ghost" data-permiso="eliminar" id="det-btn-eliminar" onclick="eliminarPedidoActual()">
+      Eliminar
+    </button>
+  </div>
+</div>
+
+<!-- ── Modal nuevo pedido ──────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-pedido">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <span class="modal-title">Nuevo pedido</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modal-pedido')">✕</button>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:1rem">
+
+      <!-- Cliente + fecha -->
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Cliente *</label>
+          <select class="form-select" id="p-cliente"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fecha del servicio</label>
+          <input class="form-input" type="datetime-local" id="p-fecha" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Descripción general</label>
+        <input class="form-input" id="p-desc" placeholder="Ej. Servicio de mantenimiento preventivo" />
+      </div>
+
+      <!-- Items -->
+      <div>
+        <div class="item-row-header">
+          <span>Producto / Servicio</span>
+          <span style="text-align:center">Cant.</span>
+          <span style="text-align:right">Precio unit.</span>
+          <span style="text-align:right">Desc. %</span>
+          <span></span>
+        </div>
+        <div id="items-container"></div>
+        <button class="btn btn-ghost btn-sm" id="btn-add-item" style="margin-top:4px">
+          + Agregar línea
+        </button>
+      </div>
+
+      <!-- IVA toggle -->
+      <div class="flex-center gap-8" style="font-size:13px">
+        <input type="checkbox" id="p-iva" checked style="width:16px;height:16px;accent-color:var(--color-accent)" />
+        <label for="p-iva" style="cursor:pointer">Aplicar IVA 16%</label>
+      </div>
+
+      <!-- Totales -->
+      <div class="totales-wrap">
+        <div class="total-row"><span>Subtotal</span><span id="tot-sub">$0.00</span></div>
+        <div class="total-row"><span id="tot-iva-label">IVA (16%)</span><span id="tot-iva">$0.00</span></div>
+        <div class="total-row grand"><span>Total</span><span id="tot-total">$0.00</span></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Notas internas</label>
+        <textarea class="form-textarea" id="p-notas" placeholder="Indicaciones, acuerdos especiales..." style="min-height:60px"></textarea>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-pedido')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-pedido">Crear pedido</button>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/api.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script>
+requireAuth();
+initSidebar('pedidos');
+
+document.getElementById('subtitle-fecha').textContent =
+  new Intl.DateTimeFormat('es-MX',{weekday:'long',day:'numeric',month:'long'}).format(new Date());
+
+let todosPedidos = [];
+let filtroEstado = '';
+let pedidoActual = null;
+let productos    = [];
+let clientes     = [];
+
+// ── Abrir desde URL con ?nuevo=1 ──────────────────────────────────────────────
+if (new URLSearchParams(location.search).get('nuevo') === '1') {
+  abrirModalNuevo();
+}
+
+// ── Cargar pedidos ────────────────────────────────────────────────────────────
+async function loadPedidos() {
+  try {
+    todosPedidos = await api.pedidos.list({ estado: filtroEstado });
+    actualizarConteos();
+    renderTabla(todosPedidos);
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+function actualizarConteos() {
+  const estados = ['pendiente','en_camino','entregado','cancelado'];
+  document.getElementById('cnt-todos').textContent = todosPedidos.length;
+  estados.forEach(e => {
+    const el = document.getElementById('cnt-' + e);
+    if (el) el.textContent = todosPedidos.filter(p => p.estado === e).length;
+  });
+}
+
+function renderTabla(lista) {
+  // Filtro de búsqueda
+  const q = document.getElementById('buscador').value.toLowerCase();
+  const filtrada = q ? lista.filter(p => p.cliente_nombre.toLowerCase().includes(q)) : lista;
+
+  const tbody = document.getElementById('tabla-pedidos');
+  if (!filtrada.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--color-text-muted)">
+      ${q ? 'Sin resultados para "'+q+'"' : 'Sin pedidos. Crea el primero.'}
+    </td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtrada.map(p => `
+    <tr style="cursor:pointer" onclick="verDetalle('${p.id}')">
+      <td style="font-size:12px;font-weight:500;color:var(--color-text-muted)">
+        ${String(p.numero).padStart(4,'0')}
+      </td>
+      <td>
+        <div style="font-size:13px;font-weight:500">${p.cliente_nombre}</div>
+        <div style="font-size:11px;color:var(--color-text-muted)">${p.cliente_telefono || ''}</div>
+      </td>
+      <td style="font-size:13px;color:var(--color-text-muted)">${p.num_items || 0} item(s)</td>
+      <td style="font-size:13px">${formatMoney(p.subtotal || 0)}</td>
+      <td style="font-weight:500">${formatMoney(p.total || 0)}</td>
+      <td style="font-size:12px;color:var(--color-text-muted)">${p.fecha_servicio ? formatDate(p.fecha_servicio) : '—'}</td>
+      <td>${estadoBadge(p.estado)}</td>
+      <td onclick="event.stopPropagation()">
+        <select class="estado-select" onchange="cambiarEstadoRapido('${p.id}',this.value)" title="Cambiar estado">
+          <option value="pendiente"  ${p.estado==='pendiente' ?'selected':''}>Pendiente</option>
+          <option value="en_camino"  ${p.estado==='en_camino' ?'selected':''}>En camino</option>
+          <option value="entregado"  ${p.estado==='entregado' ?'selected':''}>Entregado</option>
+          <option value="cancelado"  ${p.estado==='cancelado' ?'selected':''}>Cancelado</option>
+        </select>
+      </td>
+    </tr>`).join('');
+}
+
+// ── Filtros de estado ─────────────────────────────────────────────────────────
+document.getElementById('estado-tabs').addEventListener('click', e => {
+  const btn = e.target.closest('.estado-tab');
+  if (!btn) return;
+  document.querySelectorAll('.estado-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filtroEstado = btn.dataset.estado;
+  loadPedidos();
+});
+
+document.getElementById('buscador').addEventListener('input', () => renderTabla(todosPedidos));
+
+// ── Cambio de estado rápido desde tabla ───────────────────────────────────────
+async function cambiarEstadoRapido(id, estado) {
+  try {
+    await api.pedidos.update(id, { estado });
+    showToast('Estado actualizado');
+    loadPedidos();
+    if (pedidoActual?.id === id) {
+      document.getElementById('det-estado-sel').value = estado;
+    }
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+// ── Ver detalle en panel lateral ──────────────────────────────────────────────
+async function verDetalle(id) {
+  try {
+    pedidoActual = await api.pedidos.get(id);
+    const p = pedidoActual;
+
+    document.getElementById('det-titulo').textContent  = `Pedido #${String(p.numero).padStart(4,'0')}`;
+    document.getElementById('det-fecha').textContent   = formatDate(p.created_at);
+    document.getElementById('det-cliente').textContent = p.cliente_nombre;
+    document.getElementById('det-cliente-info').textContent =
+      [p.cliente_telefono, p.cliente_rfc, p.cliente_email].filter(Boolean).join(' · ');
+
+    document.getElementById('det-estado-sel').value = p.estado;
+    document.getElementById('det-subtotal').textContent = formatMoney(p.subtotal || 0);
+    document.getElementById('det-iva').textContent      = formatMoney(p.impuestos || 0);
+    document.getElementById('det-total').textContent    = formatMoney(p.total || 0);
+
+    // Notas
+    const notasWrap = document.getElementById('det-notas-wrap');
+    if (p.notas) {
+      notasWrap.style.display = 'block';
+      document.getElementById('det-notas').textContent = p.notas;
+    } else {
+      notasWrap.style.display = 'none';
+    }
+
+    // Items
+    const itemsEl = document.getElementById('det-items');
+    if (!p.items?.length) {
+      itemsEl.innerHTML = '<div style="font-size:13px;color:var(--color-text-muted);padding:8px 0">Sin items registrados</div>';
+    } else {
+      itemsEl.innerHTML = p.items.map(i => `
+        <div class="det-item">
+          <div>
+            <div style="font-weight:500">${i.descripcion}</div>
+            <div style="font-size:10px;color:var(--color-text-hint)">${i.sku || i.producto_nombre || ''}</div>
+          </div>
+          <div style="text-align:center;color:var(--color-text-muted)">${i.cantidad}</div>
+          <div style="text-align:right">${formatMoney(i.precio_unit)}</div>
+          <div style="text-align:right;font-weight:500">${formatMoney(i.subtotal)}</div>
+        </div>`).join('');
+    }
+
+    // Aplicar permisos en panel
+    Permisos.aplicar();
+
+    // Abrir panel
+    document.getElementById('det-overlay').classList.add('open');
+    document.getElementById('det-panel').classList.add('open');
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+function cerrarDetalle() {
+  document.getElementById('det-overlay').classList.remove('open');
+  document.getElementById('det-panel').classList.remove('open');
+  pedidoActual = null;
+}
+
+async function cambiarEstado() {
+  if (!pedidoActual) return;
+  const estado = document.getElementById('det-estado-sel').value;
+  await cambiarEstadoRapido(pedidoActual.id, estado);
+}
+
+async function eliminarPedidoActual() {
+  if (!pedidoActual) return;
+  if (!confirm(`¿Eliminar el pedido #${String(pedidoActual.numero).padStart(4,'0')}? Esto devolverá el stock.`)) return;
+  try {
+    await api.pedidos.delete(pedidoActual.id);
+    showToast('Pedido eliminado');
+    cerrarDetalle();
+    loadPedidos();
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+async function crearFacturaDesdePedido() {
+  if (!pedidoActual) return;
+  try {
+    const items = pedidoActual.items?.map(i => ({
+      descripcion: i.descripcion,
+      cantidad:    i.cantidad,
+      precio_unit: i.precio_unit,
+    })) || [{ descripcion: pedidoActual.descripcion || 'Servicio', cantidad: 1, precio_unit: pedidoActual.subtotal }];
+
+    await api.facturas.create({
+      cliente_id: pedidoActual.cliente_id,
+      pedido_id:  pedidoActual.id,
+      items,
+    });
+    showToast('✅ Factura creada como borrador');
+    window.location.href = '../facturas/facturas.html';
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+// ── Modal nuevo pedido ────────────────────────────────────────────────────────
+async function abrirModalNuevo() {
+  [clientes, productos] = await Promise.all([api.clientes.list(), api.productos.list()]);
+
+  const sel = document.getElementById('p-cliente');
+  sel.innerHTML = clientes.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+
+  document.getElementById('p-desc').value   = '';
+  document.getElementById('p-notas').value  = '';
+  document.getElementById('p-fecha').value  = '';
+  document.getElementById('p-iva').checked  = true;
+  document.getElementById('items-container').innerHTML = '';
+
+  agregarItemRow();
+  calcularTotales();
+  openModal('modal-pedido');
+}
+
+document.getElementById('btn-nuevo').addEventListener('click', abrirModalNuevo);
+document.getElementById('btn-add-item').addEventListener('click', agregarItemRow);
+document.getElementById('p-iva').addEventListener('change', calcularTotales);
+
+function agregarItemRow() {
+  const wrap = document.getElementById('items-container');
+  const div  = document.createElement('div');
+  div.className = 'item-row';
+
+  const opts = `<option value="">— Sin vincular —</option>` +
+    productos.map(p => `<option value="${p.id}" data-precio="${p.precio}" data-nombre="${p.nombre}">${p.nombre}${p.sku?' ('+p.sku+')':''}</option>`).join('');
+
+  div.innerHTML = `
+    <div class="form-group item-desc-col" style="margin:0">
+      <select class="form-select item-prod" style="font-size:13px;margin-bottom:4px">${opts}</select>
+      <input class="form-input item-desc" placeholder="Descripción personalizada" style="font-size:12px" />
+    </div>
+    <div class="form-group" style="margin:0">
+      <input class="form-input item-qty" type="number" value="1" min="0.01" step="0.01" style="font-size:13px;text-align:center" />
+    </div>
+    <div class="form-group" style="margin:0">
+      <input class="form-input item-price" type="number" min="0" step="0.01" placeholder="0.00" style="font-size:13px;text-align:right" />
+    </div>
+    <div class="form-group" style="margin:0">
+      <input class="form-input item-desc-pct" type="number" min="0" max="100" value="0" style="font-size:13px;text-align:right" />
+    </div>
+    <button class="btn btn-ghost btn-icon" onclick="this.closest('.item-row').remove();calcularTotales()" style="margin-bottom:0">✕</button>
+  `;
+
+  // Al seleccionar producto, autocompletar precio y descripción
+  div.querySelector('.item-prod').addEventListener('change', function() {
+    const opt = this.options[this.selectedIndex];
+    const precio = opt.dataset.precio;
+    const nombre = opt.dataset.nombre;
+    if (precio) div.querySelector('.item-price').value = precio;
+    if (nombre) div.querySelector('.item-desc').placeholder = nombre;
+    calcularTotales();
+  });
+
+  div.querySelectorAll('input').forEach(i => i.addEventListener('input', calcularTotales));
+  wrap.appendChild(div);
+}
+
+function calcularTotales() {
+  let subtotal = 0;
+  document.querySelectorAll('#items-container .item-row').forEach(row => {
+    const qty   = parseFloat(row.querySelector('.item-qty')?.value)      || 0;
+    const price = parseFloat(row.querySelector('.item-price')?.value)    || 0;
+    const desc  = parseFloat(row.querySelector('.item-desc-pct')?.value) || 0;
+    subtotal += qty * price * (1 - desc / 100);
+  });
+
+  const conIva  = document.getElementById('p-iva').checked;
+  const iva     = conIva ? subtotal * 0.16 : 0;
+  const total   = subtotal + iva;
+
+  document.getElementById('tot-sub').textContent       = formatMoney(subtotal);
+  document.getElementById('tot-iva').textContent       = formatMoney(iva);
+  document.getElementById('tot-total').textContent     = formatMoney(total);
+  document.getElementById('tot-iva-label').textContent = conIva ? 'IVA (16%)' : 'IVA (no aplica)';
+}
+
+// ── Guardar pedido ────────────────────────────────────────────────────────────
+document.getElementById('btn-guardar-pedido').addEventListener('click', async () => {
+  const items = [];
+  let valido  = true;
+
+  document.querySelectorAll('#items-container .item-row').forEach(row => {
+    const prodId = row.querySelector('.item-prod')?.value;
+    const desc   = row.querySelector('.item-desc')?.value?.trim() ||
+                   row.querySelector('.item-prod')?.options[row.querySelector('.item-prod').selectedIndex]?.dataset.nombre || '';
+    const qty    = parseFloat(row.querySelector('.item-qty')?.value)      || 0;
+    const price  = parseFloat(row.querySelector('.item-price')?.value)    || 0;
+    const descPct= parseFloat(row.querySelector('.item-desc-pct')?.value) || 0;
+
+    if (!qty || !price) { valido = false; return; }
+    items.push({ producto_id: prodId || null, descripcion: desc || 'Servicio', cantidad: qty, precio_unit: price, descuento: descPct });
+  });
+
+  if (!valido || !items.length) return showToast('Completa todos los items (cantidad y precio)', 'error');
+
+  const body = {
+    cliente_id:    document.getElementById('p-cliente').value,
+    descripcion:   document.getElementById('p-desc').value.trim(),
+    fecha_servicio:document.getElementById('p-fecha').value || null,
+    notas:         document.getElementById('p-notas').value.trim(),
+    iva:           document.getElementById('p-iva').checked,
+    items,
+  };
+
+  try {
+    const nuevo = await api.pedidos.create(body);
+    showToast(`✅ Pedido #${String(nuevo.numero).padStart(4,'0')} creado`);
+    closeModal('modal-pedido');
+    loadPedidos();
+  } catch(err) { showToast(err.message, 'error'); }
+});
+
+loadPedidos();
+</script>
+</body>
+</html>

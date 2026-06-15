@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ServiGest — Panel Contador</title>
+  <link rel="stylesheet" href="../../css/base.css" />
+  <link rel="stylesheet" href="../../css/components.css" />
+  <style>
+    /* ── Layout contador ─────────────────────────────────────────────────── */
+    .contador-layout { display:grid; grid-template-columns:240px 1fr; min-height:100vh; }
+
+    .contador-sidebar {
+      background:var(--color-bg);
+      border-right:1px solid var(--color-border);
+      padding:1.5rem 1rem;
+      position:sticky; top:0; height:100vh;
+      display:flex; flex-direction:column; gap:1.5rem;
+      overflow-y:auto;
+    }
+
+    .empresa-badge {
+      background:var(--color-accent-light);
+      border:1px solid rgba(29,158,117,.2);
+      border-radius:var(--radius-md);
+      padding:10px 12px;
+      font-size:12px;
+    }
+    .empresa-badge .nombre { font-weight:600; color:var(--color-accent-dark); font-size:13px; }
+    .empresa-badge .rfc    { color:var(--color-text-muted); margin-top:2px; font-family:monospace; }
+
+    /* ── KPI fiscal ──────────────────────────────────────────────────────── */
+    .kpi-fiscal { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:1.5rem; }
+    .kf { background:var(--color-bg); border:1px solid var(--color-border); border-radius:var(--radius-lg); padding:.9rem 1rem; }
+    .kf-label { font-size:11px; font-weight:500; text-transform:uppercase; letter-spacing:.4px; color:var(--color-text-muted); margin-bottom:6px; }
+    .kf-value { font-size:22px; font-weight:600; }
+    .kf-sub   { font-size:11px; color:var(--color-text-hint); margin-top:4px; }
+
+    /* ── Tabla fiscal limpia ─────────────────────────────────────────────── */
+    .fiscal-card { background:var(--color-bg); border:1px solid var(--color-border); border-radius:var(--radius-lg); overflow:hidden; margin-bottom:1.25rem; }
+    .fiscal-card-header { padding:.9rem 1.25rem; border-bottom:1px solid var(--color-border); display:flex; align-items:center; justify-content:space-between; }
+    .fiscal-card-title  { font-size:14px; font-weight:500; }
+
+    /* ── Alerta vencimiento ──────────────────────────────────────────────── */
+    .venc-chip { font-size:10px; font-weight:600; padding:2px 8px; border-radius:20px; }
+    .venc-red    { background:#FCEBEB; color:#A32D2D; }
+    .venc-orange { background:#FAEEDA; color:#854F0B; }
+    .venc-green  { background:#EAF3DE; color:#3B6D11; }
+
+    /* ── Período selector ────────────────────────────────────────────────── */
+    .periodo-selector { display:flex; gap:6px; }
+    .periodo-btn { padding:5px 12px; border-radius:var(--radius-md); border:1px solid var(--color-border-md); background:transparent; font-size:12px; color:var(--color-text-muted); cursor:pointer; font-family:inherit; }
+    .periodo-btn.active { background:var(--color-accent-light); color:var(--color-accent-dark); border-color:var(--color-accent); font-weight:500; }
+
+    /* ── Nav contador ────────────────────────────────────────────────────── */
+    .cnt-nav { display:flex; flex-direction:column; gap:3px; }
+    .cnt-link { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:var(--radius-md); font-size:13px; color:var(--color-text-muted); cursor:pointer; transition:background .1s; text-decoration:none; }
+    .cnt-link:hover  { background:var(--color-bg-tertiary); color:var(--color-text); }
+    .cnt-link.active { background:var(--color-accent-light); color:var(--color-accent-dark); font-weight:500; }
+    .cnt-icon { width:16px; height:16px; flex-shrink:0; }
+
+    @media(max-width:900px) {
+      .contador-layout { grid-template-columns:1fr; }
+      .contador-sidebar { display:none; }
+      .kpi-fiscal { grid-template-columns:repeat(2,1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="contador-layout">
+
+  <!-- ── Sidebar contador ──────────────────────────────────────────────────── -->
+  <aside class="contador-sidebar">
+    <div class="logo"><div class="logo-dot"></div>ServiGest</div>
+
+    <!-- Badge empresa activa -->
+    <div class="empresa-badge">
+      <div style="font-size:10px;color:var(--color-text-hint);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px">Empresa</div>
+      <div class="nombre" id="side-empresa">—</div>
+      <div class="rfc"    id="side-rfc">—</div>
+    </div>
+
+    <!-- Nav -->
+    <nav class="cnt-nav">
+      <a class="cnt-link active" id="nav-resumen" onclick="mostrarPanel('resumen')">
+        <svg class="cnt-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Resumen fiscal
+      </a>
+      <a class="cnt-link" id="nav-facturas" onclick="mostrarPanel('facturas')">
+        <svg class="cnt-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>
+        Facturas CFDI
+      </a>
+      <a class="cnt-link" id="nav-cxc" onclick="mostrarPanel('cxc')">
+        <svg class="cnt-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        Por cobrar
+      </a>
+      <a class="cnt-link" id="nav-reportes" onclick="mostrarPanel('reportes')">
+        <svg class="cnt-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Reportes
+      </a>
+      <a class="cnt-link" id="nav-clientes" onclick="mostrarPanel('clientes')">
+        <svg class="cnt-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        Clientes
+      </a>
+    </nav>
+
+    <!-- Usuario -->
+    <div style="margin-top:auto">
+      <div class="sidebar-user">
+        <div class="user-avatar" id="side-avatar">--</div>
+        <div>
+          <div class="user-name"    id="side-nombre">—</div>
+          <div class="user-empresa" style="color:var(--color-accent);font-size:10px;font-weight:500">Contador</div>
+        </div>
+      </div>
+      <button id="btn-logout" class="btn btn-ghost btn-sm" style="margin-top:8px;width:100%">Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <!-- ── Contenido ─────────────────────────────────────────────────────────── -->
+  <main style="padding:2rem;overflow-x:hidden">
+
+    <!-- ═══ PANEL: RESUMEN FISCAL ═══ -->
+    <div id="panel-resumen">
+
+      <div class="flex-between" style="margin-bottom:1.5rem">
+        <div>
+          <h1 class="page-title">Resumen fiscal</h1>
+          <p class="page-subtitle" id="fecha-resumen"></p>
+        </div>
+        <div class="periodo-selector">
+          <button class="periodo-btn active" data-dias="30">Este mes</button>
+          <button class="periodo-btn" data-dias="90">3 meses</button>
+          <button class="periodo-btn" data-dias="365">Este año</button>
+        </div>
+      </div>
+
+      <!-- KPIs fiscales -->
+      <div class="kpi-fiscal">
+        <div class="kf">
+          <div class="kf-label">Facturado (timbrado)</div>
+          <div class="kf-value" id="kf-facturado">—</div>
+          <div class="kf-sub"   id="kf-facturas-num">facturas</div>
+        </div>
+        <div class="kf">
+          <div class="kf-label">IVA generado</div>
+          <div class="kf-value" id="kf-iva">—</div>
+          <div class="kf-sub">16% sobre facturado</div>
+        </div>
+        <div class="kf">
+          <div class="kf-label">Ingresos cobrados</div>
+          <div class="kf-value" id="kf-cobrado">—</div>
+          <div class="kf-sub"   id="kf-cobrado-sub">pedidos entregados</div>
+        </div>
+        <div class="kf">
+          <div class="kf-label">Por cobrar</div>
+          <div class="kf-value" style="color:#854F0B" id="kf-por-cobrar">—</div>
+          <div class="kf-sub"   id="kf-cxc-num">cuentas vigentes</div>
+        </div>
+        <div class="kf">
+          <div class="kf-label">Vencido</div>
+          <div class="kf-value" style="color:#A32D2D" id="kf-vencido">—</div>
+          <div class="kf-sub"   id="kf-venc-num">cuentas vencidas</div>
+        </div>
+        <div class="kf">
+          <div class="kf-label">Facturas canceladas</div>
+          <div class="kf-value" id="kf-canceladas">—</div>
+          <div class="kf-sub">en el período</div>
+        </div>
+      </div>
+
+      <!-- Alertas fiscales -->
+      <div id="alertas-fiscales" style="margin-bottom:1.25rem"></div>
+
+      <!-- Últimas facturas timbradas -->
+      <div class="fiscal-card">
+        <div class="fiscal-card-header">
+          <span class="fiscal-card-title">Últimas facturas timbradas</span>
+          <button class="btn btn-secondary btn-sm" onclick="mostrarPanel('facturas')">Ver todas →</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Folio</th><th>Cliente / RFC</th><th>Subtotal</th><th>IVA</th><th>Total</th><th>Fecha</th><th>Estado</th></tr>
+            </thead>
+            <tbody id="resumen-facturas">
+              <tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--color-text-muted)">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- CxC próximas a vencer -->
+      <div class="fiscal-card">
+        <div class="fiscal-card-header">
+          <span class="fiscal-card-title">Cuentas próximas a vencer</span>
+          <button class="btn btn-secondary btn-sm" onclick="mostrarPanel('cxc')">Ver todas →</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Cliente</th><th>Monto</th><th>Pagado</th><th>Saldo</th><th>Vencimiento</th><th>Estado</th></tr>
+            </thead>
+            <tbody id="resumen-cxc">
+              <tr><td colspan="6" style="text-align:center;padding:1.5rem;color:var(--color-text-muted)">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /panel-resumen -->
+
+    <!-- ═══ PANEL: FACTURAS ═══ -->
+    <div id="panel-facturas" style="display:none">
+      <div class="flex-between" style="margin-bottom:1.5rem">
+        <div>
+          <h1 class="page-title">Facturas CFDI</h1>
+          <p class="page-subtitle">Comprobantes fiscales digitales</p>
+        </div>
+        <button class="btn btn-primary" onclick="descargarExcelFacturas()">↓ Exportar Excel</button>
+      </div>
+
+      <!-- Filtros estado -->
+      <div class="flex gap-8" style="margin-bottom:1rem;flex-wrap:wrap">
+        <button class="btn btn-secondary btn-sm filtro-fact active" data-estado="">Todas</button>
+        <button class="btn btn-secondary btn-sm filtro-fact" data-estado="timbrado">Timbradas</button>
+        <button class="btn btn-secondary btn-sm filtro-fact" data-estado="cancelado">Canceladas</button>
+        <button class="btn btn-secondary btn-sm filtro-fact" data-estado="borrador">Borrador</button>
+      </div>
+
+      <div class="fiscal-card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Folio</th><th>Cliente</th><th>RFC</th><th>Subtotal</th><th>IVA</th><th>Total</th><th>Fecha</th><th>Estado</th><th>UUID SAT</th></tr>
+            </thead>
+            <tbody id="tabla-fact-contador">
+              <tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /panel-facturas -->
+
+    <!-- ═══ PANEL: CXC ═══ -->
+    <div id="panel-cxc" style="display:none">
+      <div class="flex-between" style="margin-bottom:1.5rem">
+        <div>
+          <h1 class="page-title">Cuentas por cobrar</h1>
+          <p class="page-subtitle">Estado de adeudos y vencimientos</p>
+        </div>
+        <button class="btn btn-primary" onclick="descargarExcelCxC()">↓ Exportar Excel</button>
+      </div>
+
+      <div class="flex gap-8" style="margin-bottom:1rem">
+        <button class="btn btn-secondary btn-sm filtro-cxc active" data-estado="">Todas</button>
+        <button class="btn btn-secondary btn-sm filtro-cxc" data-estado="pendiente">Pendientes</button>
+        <button class="btn btn-secondary btn-sm filtro-cxc" data-estado="vencida">Vencidas</button>
+        <button class="btn btn-secondary btn-sm filtro-cxc" data-estado="pagada">Pagadas</button>
+      </div>
+
+      <div class="fiscal-card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Cliente</th><th>Monto original</th><th>Pagado</th><th>Saldo</th><th>Vencimiento</th><th>Días</th><th>Estado</th></tr>
+            </thead>
+            <tbody id="tabla-cxc-contador">
+              <tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /panel-cxc -->
+
+    <!-- ═══ PANEL: REPORTES ═══ -->
+    <div id="panel-reportes" style="display:none">
+      <div class="flex-between" style="margin-bottom:1.5rem">
+        <div>
+          <h1 class="page-title">Reportes</h1>
+          <p class="page-subtitle">Exportaciones para contabilidad</p>
+        </div>
+      </div>
+
+      <div class="grid-2">
+
+        <div class="card">
+          <div style="font-size:14px;font-weight:500;margin-bottom:.75rem">📊 Reporte de ingresos</div>
+          <p style="font-size:13px;color:var(--color-text-muted);margin-bottom:1rem">Ingresos diarios del período, ticket promedio y clientes únicos. Exportable a Excel.</p>
+          <div class="flex gap-8" style="flex-wrap:wrap">
+            <div class="form-group" style="flex:1;min-width:120px">
+              <label class="form-label">Desde</label>
+              <input class="form-input" type="date" id="rep-desde" />
+            </div>
+            <div class="form-group" style="flex:1;min-width:120px">
+              <label class="form-label">Hasta</label>
+              <input class="form-input" type="date" id="rep-hasta" />
+            </div>
+          </div>
+          <button class="btn btn-primary" style="margin-top:.75rem" onclick="exportarIngresos()">↓ Descargar Excel</button>
+        </div>
+
+        <div class="card">
+          <div style="font-size:14px;font-weight:500;margin-bottom:.75rem">👥 Top clientes</div>
+          <p style="font-size:13px;color:var(--color-text-muted);margin-bottom:1rem">Clientes ordenados por volumen de facturación. Útil para análisis de concentración.</p>
+          <button class="btn btn-primary" onclick="exportarClientesTop()">↓ Descargar Excel</button>
+        </div>
+
+        <div class="card">
+          <div style="font-size:14px;font-weight:500;margin-bottom:.75rem">⚠️ CxC vencidas</div>
+          <p style="font-size:13px;color:var(--color-text-muted);margin-bottom:1rem">Listado de cuentas vencidas con días de atraso. Para gestión de cartera.</p>
+          <button class="btn btn-primary" onclick="exportarCxCVencidas()">↓ Descargar Excel</button>
+        </div>
+
+        <div class="card">
+          <div style="font-size:14px;font-weight:500;margin-bottom:.75rem">🧾 Facturas del período</div>
+          <p style="font-size:13px;color:var(--color-text-muted);margin-bottom:1rem">Todas las facturas timbradas con UUID SAT, RFC del cliente e importes desglosados.</p>
+          <button class="btn btn-primary" onclick="exportarFacturas()">↓ Descargar Excel</button>
+        </div>
+
+      </div>
+    </div><!-- /panel-reportes -->
+
+    <!-- ═══ PANEL: CLIENTES ═══ -->
+    <div id="panel-clientes" style="display:none">
+      <div class="flex-between" style="margin-bottom:1.5rem">
+        <div>
+          <h1 class="page-title">Clientes</h1>
+          <p class="page-subtitle">Directorio fiscal de clientes</p>
+        </div>
+      </div>
+
+      <div class="fiscal-card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Nombre / Razón social</th><th>RFC</th><th>Régimen fiscal</th><th>Uso CFDI</th><th>Teléfono</th><th>Correo</th></tr>
+            </thead>
+            <tbody id="tabla-clientes-contador">
+              <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /panel-clientes -->
+
+  </main>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/api.js"></script>
+<script src="../../js/auth.js"></script>
+<script>
+requireAuth();
+
+// Si no es contador ni admin, regresar al dashboard normal
+const rol = api.getUser()?.rol;
+if (rol === 'operador') {
+  window.location.replace('../dashboard/dashboard.html');
+}
+
+// ── Datos del usuario en sidebar ──────────────────────────────────────────────
+(function() {
+  const user = api.getUser();
+  if (!user) return;
+  const ini = user.nombre?.split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase() || '?';
+  document.getElementById('side-avatar').textContent  = ini;
+  document.getElementById('side-nombre').textContent  = user.nombre || '';
+  document.getElementById('side-empresa').textContent = user.empresa_nombre || '—';
+  document.getElementById('side-rfc').textContent     = user.rfc || 'Sin RFC configurado';
+
+  document.getElementById('fecha-resumen').textContent =
+    new Intl.DateTimeFormat('es-MX', { weekday:'long', day:'numeric', month:'long', year:'numeric' })
+      .format(new Date());
+})();
+
+document.getElementById('btn-logout').addEventListener('click', () => api.logout());
+
+// ── Navegación entre paneles ──────────────────────────────────────────────────
+const PANELES = ['resumen','facturas','cxc','reportes','clientes'];
+
+function mostrarPanel(id) {
+  PANELES.forEach(p => {
+    document.getElementById('panel-' + p).style.display = p === id ? 'block' : 'none';
+    const nav = document.getElementById('nav-' + p);
+    if (nav) nav.classList.toggle('active', p === id);
+  });
+  // Cargar datos del panel al mostrarse
+  const loaders = {
+    resumen:  loadResumen,
+    facturas: loadFacturasContador,
+    cxc:      loadCxCContador,
+    clientes: loadClientesContador,
+  };
+  loaders[id]?.();
+}
+
+// ── Período selector ──────────────────────────────────────────────────────────
+let diasPeriodo = 30;
+document.querySelectorAll('.periodo-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.periodo-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    diasPeriodo = parseInt(btn.dataset.dias);
+    loadResumen();
+  });
+});
+
+// ── Resumen fiscal ────────────────────────────────────────────────────────────
+async function loadResumen() {
+  try {
+    const desde = new Date();
+    desde.setDate(desde.getDate() - diasPeriodo);
+    const desdeISO = desde.toISOString();
+
+    const [dash, facturas, cxc, ingresos] = await Promise.all([
+      api.get('/reportes/dashboard'),
+      api.get('/facturas'),
+      api.get('/cxc'),
+      api.get('/reportes/ingresos?dias=' + diasPeriodo),
+    ]);
+
+    // Filtrar facturas del período
+    const factPeriodo    = facturas.filter(f => new Date(f.created_at) >= desde);
+    const factTimbradas  = factPeriodo.filter(f => f.estado === 'timbrado');
+    const factCanceladas = factPeriodo.filter(f => f.estado === 'cancelado');
+    const totalFact      = factTimbradas.reduce((s,f) => s + Number(f.total), 0);
+    const totalIVA       = factTimbradas.reduce((s,f) => s + Number(f.impuestos), 0);
+    const totalCobrado   = ingresos.reduce((s,r) => s + Number(r.ingresos), 0);
+
+    // KPIs
+    document.getElementById('kf-facturado').textContent    = formatMoney(totalFact);
+    document.getElementById('kf-facturas-num').textContent = `${factTimbradas.length} facturas`;
+    document.getElementById('kf-iva').textContent          = formatMoney(totalIVA);
+    document.getElementById('kf-cobrado').textContent      = formatMoney(totalCobrado);
+    document.getElementById('kf-cobrado-sub').textContent  = `${ingresos.reduce((s,r)=>s+Number(r.pedidos),0)} pedidos`;
+    document.getElementById('kf-por-cobrar').textContent   = formatMoney(dash.por_cobrar || 0);
+    document.getElementById('kf-cxc-num').textContent      = `${dash.cuentas_vigentes || 0} cuentas`;
+    document.getElementById('kf-vencido').textContent      = formatMoney(dash.vencido || 0);
+    document.getElementById('kf-venc-num').textContent     = `${dash.cuentas_vencidas || 0} vencidas`;
+    document.getElementById('kf-canceladas').textContent   = factCanceladas.length;
+
+    // Alertas fiscales
+    const alertas = [];
+    if (Number(dash.cuentas_vencidas) > 0) {
+      alertas.push({ tipo:'danger', msg:`⚠️ ${dash.cuentas_vencidas} cuenta(s) vencida(s) por ${formatMoney(dash.vencido)}. Notificar al cliente.` });
+    }
+    if (factCanceladas.length > 0) {
+      alertas.push({ tipo:'warn', msg:`📋 ${factCanceladas.length} factura(s) cancelada(s) en el período. Verificar sustitución.` });
+    }
+    if (totalFact > 0 && totalCobrado < totalFact * 0.5) {
+      alertas.push({ tipo:'info', msg:`💡 Solo se ha cobrado el ${Math.round((totalCobrado/totalFact)*100)}% de lo facturado en el período.` });
+    }
+    document.getElementById('alertas-fiscales').innerHTML = alertas.map(a =>
+      `<div class="alert alert-${a.tipo === 'danger' ? 'error' : a.tipo === 'warn' ? 'warning' : 'info'}" style="margin-bottom:8px">${a.msg}</div>`
+    ).join('');
+
+    // Tabla facturas recientes
+    const tbodyF = document.getElementById('resumen-facturas');
+    const ultFact = facturas.filter(f => f.estado === 'timbrado').slice(0,6);
+    if (!ultFact.length) {
+      tbodyF.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--color-text-muted)">Sin facturas timbradas</td></tr>`;
+    } else {
+      tbodyF.innerHTML = ultFact.map(f => `
+        <tr>
+          <td style="font-size:13px;font-weight:500">${f.folio ? 'A-'+f.folio : '—'}</td>
+          <td style="font-size:13px">${f.cliente_nombre}</td>
+          <td style="font-size:11px;font-family:monospace;color:var(--color-text-muted)">${f.cliente_rfc || '—'}</td>
+          <td>${formatMoney(f.subtotal)}</td>
+          <td style="color:var(--color-text-muted)">${formatMoney(f.impuestos)}</td>
+          <td style="font-weight:600">${formatMoney(f.total)}</td>
+          <td style="font-size:12px;color:var(--color-text-muted)">${formatDate(f.created_at)}</td>
+          <td>${estadoBadge(f.estado)}</td>
+        </tr>`).join('');
+    }
+
+    // Tabla CxC próximas
+    const tbodyC = document.getElementById('resumen-cxc');
+    const proxCxC = cxc.filter(c => c.estado !== 'pagada').slice(0,5);
+    if (!proxCxC.length) {
+      tbodyC.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:1.5rem;color:var(--color-text-muted)">Sin cuentas pendientes 🎉</td></tr>`;
+    } else {
+      tbodyC.innerHTML = proxCxC.map(c => {
+        const saldo = Number(c.monto) - Number(c.monto_pagado);
+        const dias  = Math.ceil((new Date(c.fecha_vence) - new Date()) / 86400000);
+        const cl    = dias < 0 ? 'venc-red' : dias <= 5 ? 'venc-orange' : 'venc-green';
+        const dl    = dias < 0 ? `${Math.abs(dias)}d vencida` : dias === 0 ? 'Hoy' : `${dias}d`;
+        return `<tr>
+          <td style="font-size:13px;font-weight:500">${c.cliente_nombre}</td>
+          <td style="font-weight:500">${formatMoney(c.monto)}</td>
+          <td style="color:var(--color-accent)">${formatMoney(c.monto_pagado)}</td>
+          <td style="font-weight:600;color:${saldo>0?'#A32D2D':'var(--color-accent)'}">${formatMoney(saldo)}</td>
+          <td style="font-size:12px">${formatDate(c.fecha_vence)}</td>
+          <td>${estadoBadge(c.estado)}</td>
+        </tr>`;
+      }).join('');
+    }
+
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+// ── Facturas CFDI completo ────────────────────────────────────────────────────
+let filtroFactEstado = '';
+async function loadFacturasContador() {
+  try {
+    const lista = await api.get('/facturas' + (filtroFactEstado ? '?estado='+filtroFactEstado : ''));
+    const tbody = document.getElementById('tabla-fact-contador');
+    if (!lista.length) {
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Sin facturas</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = lista.map(f => `
+      <tr>
+        <td style="font-size:13px;font-weight:500">${f.folio ? 'A-'+f.folio : 'Borrador'}</td>
+        <td style="font-size:13px">${f.cliente_nombre}</td>
+        <td style="font-size:11px;font-family:monospace;color:var(--color-text-muted)">${f.cliente_rfc || '—'}</td>
+        <td>${formatMoney(f.subtotal)}</td>
+        <td style="color:var(--color-text-muted)">${formatMoney(f.impuestos)}</td>
+        <td style="font-weight:600">${formatMoney(f.total)}</td>
+        <td style="font-size:12px;color:var(--color-text-muted)">${formatDate(f.created_at)}</td>
+        <td>${estadoBadge(f.estado)}</td>
+        <td style="font-size:10px;font-family:monospace;color:var(--color-text-hint);max-width:120px;overflow:hidden;text-overflow:ellipsis">
+          ${f.uuid_sat || '—'}
+        </td>
+      </tr>`).join('');
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+document.querySelectorAll('.filtro-fact').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filtro-fact').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filtroFactEstado = btn.dataset.estado;
+    loadFacturasContador();
+  });
+});
+
+// ── CxC completo ──────────────────────────────────────────────────────────────
+let filtroCxCEstado = '';
+async function loadCxCContador() {
+  try {
+    const lista = await api.get('/cxc' + (filtroCxCEstado ? '?estado='+filtroCxCEstado : ''));
+    const tbody = document.getElementById('tabla-cxc-contador');
+    if (!lista.length) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Sin cuentas</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = lista.map(c => {
+      const saldo = Number(c.monto) - Number(c.monto_pagado);
+      const dias  = Math.ceil((new Date(c.fecha_vence) - new Date()) / 86400000);
+      const cl    = dias < 0 ? 'venc-red' : dias <= 5 ? 'venc-orange' : 'venc-green';
+      const dl    = dias < 0 ? `${Math.abs(dias)}d vencida` : dias === 0 ? 'Hoy' : `${dias}d`;
+      return `<tr>
+        <td>
+          <div style="font-size:13px;font-weight:500">${c.cliente_nombre}</div>
+          <div style="font-size:11px;color:var(--color-text-muted)">${c.cliente_tel||''}</div>
+        </td>
+        <td style="font-weight:500">${formatMoney(c.monto)}</td>
+        <td style="color:var(--color-accent)">${formatMoney(c.monto_pagado)}</td>
+        <td style="font-weight:600;color:${saldo>0?'#A32D2D':'var(--color-accent)'}">${formatMoney(saldo)}</td>
+        <td style="font-size:12px">${formatDate(c.fecha_vence)}</td>
+        <td><span class="venc-chip ${cl}">${dl}</span></td>
+        <td>${estadoBadge(c.estado)}</td>
+      </tr>`;
+    }).join('');
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+document.querySelectorAll('.filtro-cxc').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filtro-cxc').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filtroCxCEstado = btn.dataset.estado;
+    loadCxCContador();
+  });
+});
+
+// ── Clientes fiscal ───────────────────────────────────────────────────────────
+async function loadClientesContador() {
+  try {
+    const lista  = await api.clientes.list();
+    const tbody  = document.getElementById('tabla-clientes-contador');
+    const usoMap = { G01:'Adquisición de mercancias', G03:'Gastos en general', P01:'Por definir', I04:'Equipo de computo' };
+    tbody.innerHTML = lista.map(c => `
+      <tr>
+        <td style="font-size:13px;font-weight:500">${c.nombre}</td>
+        <td style="font-size:12px;font-family:monospace">${c.rfc || '—'}</td>
+        <td style="font-size:12px;color:var(--color-text-muted)">${c.regimen_fiscal || '—'}</td>
+        <td style="font-size:12px">${c.uso_cfdi || 'G03'}</td>
+        <td style="font-size:12px">${c.telefono || '—'}</td>
+        <td style="font-size:12px;color:var(--color-text-muted)">${c.email || '—'}</td>
+      </tr>`).join('');
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+// ── Exportaciones ─────────────────────────────────────────────────────────────
+async function exportarIngresos() {
+  try {
+    const desde = document.getElementById('rep-desde').value;
+    const hasta = document.getElementById('rep-hasta').value;
+    await api.reportes.ingresosXlsx({ desde, hasta });
+    showToast('✅ Reporte descargado');
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+async function exportarClientesTop() {
+  try {
+    const data  = await api.reportes.clientesTop();
+    showToast('Descargando...'); 
+    // Convertir a CSV sencillo si no hay xlsx disponible
+    const rows  = [['Nombre','RFC','Pedidos','Total facturado','Último pedido']];
+    data.forEach(c => rows.push([c.nombre, c.rfc||'', c.pedidos, c.total_facturado, c.ultimo_pedido||'']));
+    descargarCSV(rows, 'clientes_top.csv');
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+async function exportarCxCVencidas() {
+  try {
+    const data = await api.reportes.cxcVencidas();
+    const rows = [['Cliente','Teléfono','Monto','Pagado','Saldo','Vencimiento','Días vencida']];
+    data.forEach(c => rows.push([
+      c.cliente_nombre, c.cliente_tel||'',
+      c.monto, c.monto_pagado,
+      Number(c.monto)-Number(c.monto_pagado),
+      c.fecha_vence, c.dias_vencida
+    ]));
+    descargarCSV(rows, 'cxc_vencidas.csv');
+    showToast('✅ Descargado');
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+async function exportarFacturas() {
+  try {
+    const data = await api.facturas.list();
+    const rows = [['Folio','Cliente','RFC','Subtotal','IVA','Total','Fecha','Estado','UUID SAT']];
+    data.forEach(f => rows.push([
+      f.folio ? 'A-'+f.folio : '', f.cliente_nombre, f.cliente_rfc||'',
+      f.subtotal, f.impuestos, f.total,
+      new Date(f.created_at).toLocaleDateString('es-MX'),
+      f.estado, f.uuid_sat||''
+    ]));
+    descargarCSV(rows, 'facturas_cfdi.csv');
+    showToast('✅ Descargado');
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+async function descargarExcelFacturas() { exportarFacturas(); }
+async function descargarExcelCxC()      { exportarCxCVencidas(); }
+
+// Descarga CSV simple (compatible con Excel)
+function descargarCSV(filas, nombre) {
+  const bom = '\uFEFF'; // BOM para que Excel abra UTF-8 correctamente
+  const csv = bom + filas.map(r =>
+    r.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(',')
+  ).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = nombre; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ── Inicio ────────────────────────────────────────────────────────────────────
+// Inicializar fecha de rango por defecto en reportes
+(function() {
+  const hasta = new Date();
+  const desde = new Date(); desde.setDate(desde.getDate() - 30);
+  document.getElementById('rep-desde').value = desde.toISOString().slice(0,10);
+  document.getElementById('rep-hasta').value = hasta.toISOString().slice(0,10);
+})();
+
+loadResumen();
+</script>
+</body>
+</html>

@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ServiGest — Dashboard</title>
+  <link rel="stylesheet" href="../../css/base.css" />
+  <link rel="stylesheet" href="../../css/components.css" />
+  <style>
+    /* ── KPI cards ────────────────────────────────────────────────────────── */
+    .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:1.5rem; }
+    .kpi { background:var(--color-bg); border:1px solid var(--color-border); border-radius:var(--radius-lg); padding:1rem 1.25rem; position:relative; overflow:hidden; }
+    .kpi::before { content:''; position:absolute; top:0; left:0; width:3px; height:100%; background:var(--kpi-color,var(--color-accent)); border-radius:3px 0 0 3px; }
+    .kpi-label { font-size:11px; font-weight:500; color:var(--color-text-muted); text-transform:uppercase; letter-spacing:.4px; margin-bottom:8px; }
+    .kpi-value { font-size:26px; font-weight:600; color:var(--color-text); line-height:1; }
+    .kpi-sub   { font-size:11px; color:var(--color-text-hint); margin-top:6px; display:flex; align-items:center; gap:4px; }
+    .kpi-sub.up   { color:#3B6D11; } .kpi-sub.warn { color:#854F0B; } .kpi-sub.danger { color:#A32D2D; }
+    .kpi-icon { position:absolute; right:14px; top:50%; transform:translateY(-50%); font-size:28px; opacity:.08; }
+
+    /* ── Alertas ──────────────────────────────────────────────────────────── */
+    .alertas-wrap { display:flex; flex-direction:column; gap:8px; margin-bottom:1.5rem; }
+    .alerta { display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--radius-md); font-size:13px; font-weight:500; }
+    .alerta-danger { background:#FCEBEB; color:#A32D2D; border:1px solid #F5C6C6; }
+    .alerta-warn   { background:#FAEEDA; color:#854F0B; border:1px solid #F0D49A; }
+    .alerta-info   { background:#E6F1FB; color:#185FA5; border:1px solid #B3D0F0; }
+    .alerta-dot    { width:8px; height:8px; border-radius:50%; background:currentColor; flex-shrink:0; }
+    .alerta a      { color:inherit; text-decoration:underline; cursor:pointer; }
+
+    /* ── Gráfica de barras inline ─────────────────────────────────────────── */
+    .chart-wrap { display:flex; align-items:flex-end; gap:6px; height:80px; padding:0 4px; }
+    .chart-bar-col { display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; }
+    .chart-bar { width:100%; border-radius:4px 4px 0 0; background:var(--color-accent); opacity:.7; transition:opacity .15s, height .4s ease; min-height:3px; }
+    .chart-bar:hover { opacity:1; }
+    .chart-label { font-size:10px; color:var(--color-text-hint); white-space:nowrap; }
+    .chart-val   { font-size:9px; color:var(--color-text-muted); }
+
+    /* ── Actividad reciente ───────────────────────────────────────────────── */
+    .act-item { display:flex; align-items:flex-start; gap:10px; padding:9px 0; border-bottom:1px solid var(--color-border); }
+    .act-item:last-child { border-bottom:none; }
+    .act-dot-wrap { padding-top:4px; }
+    .act-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+    .act-texto { font-size:12px; color:var(--color-text); line-height:1.45; }
+    .act-hora  { font-size:11px; color:var(--color-text-hint); margin-top:2px; }
+
+    /* ── CxC panel ────────────────────────────────────────────────────────── */
+    .cxc-item { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--color-border); }
+    .cxc-item:last-child { border-bottom:none; }
+    .cxc-dias { font-size:10px; font-weight:600; padding:2px 7px; border-radius:20px; white-space:nowrap; }
+    .cxc-vencida { background:#FCEBEB; color:#A32D2D; }
+    .cxc-prox    { background:#FAEEDA; color:#854F0B; }
+    .cxc-ok      { background:#EAF3DE; color:#3B6D11; }
+
+    /* ── Stock bajo ───────────────────────────────────────────────────────── */
+    .stock-item { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--color-border); }
+    .stock-item:last-child { border-bottom:none; }
+    .stock-bar-wrap { flex:1; }
+    .stock-bar-track { height:5px; background:var(--color-bg-tertiary); border-radius:3px; overflow:hidden; margin-top:3px; }
+    .stock-bar-fill  { height:100%; border-radius:3px; }
+
+    /* ── Trial banner ─────────────────────────────────────────────────────── */
+    .trial-banner { background:linear-gradient(135deg,#1D9E75,#0F6E56); color:#fff; border-radius:var(--radius-lg); padding:1rem 1.25rem; display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; }
+    .trial-banner h3 { font-size:14px; font-weight:600; }
+    .trial-banner p  { font-size:12px; opacity:.85; margin-top:2px; }
+    .btn-trial { background:rgba(255,255,255,.2); color:#fff; border:1px solid rgba(255,255,255,.4); font-size:12px; padding:6px 14px; border-radius:var(--radius-md); cursor:pointer; font-family:inherit; font-weight:500; white-space:nowrap; }
+    .btn-trial:hover { background:rgba(255,255,255,.3); }
+
+    /* ── Onboarding progress ──────────────────────────────────────────────── */
+    .onboard-wrap { background:var(--color-bg); border:1px solid var(--color-border); border-radius:var(--radius-lg); padding:1.25rem; margin-bottom:1.5rem; }
+    .onboard-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+    .onboard-title  { font-size:14px; font-weight:500; }
+    .onboard-pct    { font-size:13px; font-weight:600; color:var(--color-accent); }
+    .progress-track { height:6px; background:var(--color-bg-tertiary); border-radius:3px; overflow:hidden; margin-bottom:1rem; }
+    .progress-fill  { height:100%; background:var(--color-accent); border-radius:3px; transition:width .5s ease; }
+    .onboard-steps  { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+    .onboard-step   { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--color-text-muted); }
+    .step-check { width:18px; height:18px; border-radius:50%; border:1.5px solid var(--color-border-md); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:10px; }
+    .step-check.done { background:var(--color-accent); border-color:var(--color-accent); color:#fff; }
+
+    @media(max-width:900px) {
+      .kpi-grid { grid-template-columns:repeat(2,1fr); }
+      .onboard-steps { grid-template-columns:repeat(2,1fr); }
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="logo"><div class="logo-dot"></div>ServiGest</div>
+    <nav id="sidebar-nav"></nav>
+    <div class="sidebar-user">
+      <div class="user-avatar">--</div>
+      <div><div class="user-name">Cargando...</div><div class="user-empresa"></div></div>
+    </div>
+    <button id="btn-logout" class="btn btn-ghost btn-sm" style="margin-top:8px">Cerrar sesión</button>
+  </aside>
+
+  <!-- ── Main ─────────────────────────────────────────────────────────────── -->
+  <main class="main-content">
+
+    <!-- Trial banner (se oculta si no aplica) -->
+    <div class="trial-banner" id="trial-banner" style="display:none">
+      <div>
+        <h3>🎉 Período de prueba activo</h3>
+        <p id="trial-texto">Te quedan 30 días gratis para explorar todo ServiGest.</p>
+      </div>
+      <button class="btn-trial" onclick="window.location.href='../ajustes/ajustes.html'">Ver planes →</button>
+    </div>
+
+    <!-- Onboarding (se oculta al completar) -->
+    <div class="onboard-wrap" id="onboard-wrap" style="display:none">
+      <div class="onboard-header">
+        <span class="onboard-title">⚡ Primeros pasos — completa tu configuración</span>
+        <span class="onboard-pct" id="onboard-pct">0%</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="onboard-bar" style="width:0%"></div></div>
+      <div class="onboard-steps" id="onboard-steps"></div>
+    </div>
+
+    <!-- Header -->
+    <div class="page-header">
+      <div>
+        <h1 class="page-title" id="saludo">Buenos días</h1>
+        <p class="page-subtitle" id="fecha-hoy"></p>
+      </div>
+      <div class="flex gap-8">
+        <a class="btn btn-secondary" href="../cotizaciones/cotizaciones.html">Nueva cotización</a>
+        <a class="btn btn-primary"   href="../pedidos/pedidos.html?nuevo=1">+ Nuevo pedido</a>
+      </div>
+    </div>
+
+    <!-- Alertas dinámicas -->
+    <div class="alertas-wrap" id="alertas-wrap"></div>
+
+    <!-- KPIs — fila 1 -->
+    <div class="kpi-grid">
+      <div class="kpi" style="--kpi-color:#1D9E75">
+        <div class="kpi-label">Cobrado hoy</div>
+        <div class="kpi-value" id="k-hoy">—</div>
+        <div class="kpi-sub" id="k-hoy-sub">— pedidos</div>
+        <div class="kpi-icon">💰</div>
+      </div>
+      <div class="kpi" style="--kpi-color:#185FA5">
+        <div class="kpi-label">Cobrado este mes</div>
+        <div class="kpi-value" id="k-mes">—</div>
+        <div class="kpi-sub" id="k-mes-sub">del mes en curso</div>
+        <div class="kpi-icon">📅</div>
+      </div>
+      <div class="kpi" style="--kpi-color:#854F0B">
+        <div class="kpi-label">Por cobrar (CxC)</div>
+        <div class="kpi-value" id="k-cxc">—</div>
+        <div class="kpi-sub warn" id="k-cxc-sub">cuentas vigentes</div>
+        <div class="kpi-icon">📋</div>
+      </div>
+      <div class="kpi" style="--kpi-color:#A32D2D">
+        <div class="kpi-label">Vencido</div>
+        <div class="kpi-value" id="k-vencido">—</div>
+        <div class="kpi-sub danger" id="k-vencido-sub">cuentas vencidas</div>
+        <div class="kpi-icon">⚠️</div>
+      </div>
+    </div>
+
+    <!-- KPIs — fila 2 -->
+    <div class="kpi-grid" style="margin-top:-4px">
+      <div class="kpi" style="--kpi-color:#534AB7">
+        <div class="kpi-label">Pedidos hoy</div>
+        <div class="kpi-value" id="k-pedidos-hoy">—</div>
+        <div class="kpi-sub" id="k-pedidos-sub">registrados hoy</div>
+        <div class="kpi-icon">📦</div>
+      </div>
+      <div class="kpi" style="--kpi-color:#185FA5">
+        <div class="kpi-label">En proceso</div>
+        <div class="kpi-value" id="k-proceso">—</div>
+        <div class="kpi-sub">pendientes + en camino</div>
+        <div class="kpi-icon">🔄</div>
+      </div>
+      <div class="kpi" style="--kpi-color:#854F0B">
+        <div class="kpi-label">Stock bajo</div>
+        <div class="kpi-value" id="k-stock">—</div>
+        <div class="kpi-sub warn" id="k-stock-sub">productos bajo mínimo</div>
+        <div class="kpi-icon">📉</div>
+      </div>
+      <div class="kpi" style="--kpi-color:#3B6D11">
+        <div class="kpi-label">Clientes activos</div>
+        <div class="kpi-value" id="k-clientes">—</div>
+        <div class="kpi-sub up">con pedidos este mes</div>
+        <div class="kpi-icon">👥</div>
+      </div>
+    </div>
+
+    <!-- Fila: gráfica ingresos + actividad reciente -->
+    <div class="grid-2 mt-2">
+
+      <div class="card">
+        <div class="flex-between" style="margin-bottom:1.25rem">
+          <span style="font-size:14px;font-weight:500">Ingresos — últimos 7 días</span>
+          <a href="../finanzas/finanzas.html" style="font-size:12px;color:var(--color-accent)">Ver finanzas →</a>
+        </div>
+        <div class="chart-wrap" id="chart-ingresos">
+          <div style="margin:auto;color:var(--color-text-hint);font-size:13px">Cargando...</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid var(--color-border)">
+          <div style="font-size:12px;color:var(--color-text-muted)">Total 7 días</div>
+          <div style="font-size:13px;font-weight:600;color:var(--color-accent)" id="chart-total">—</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="flex-between" style="margin-bottom:1rem">
+          <span style="font-size:14px;font-weight:500">Actividad reciente</span>
+        </div>
+        <div id="actividad-wrap">
+          <div class="empty-state"><p>Cargando...</p></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Fila: CxC pendiente + Stock bajo -->
+    <div class="grid-2 mt-2">
+
+      <div class="card">
+        <div class="flex-between" style="margin-bottom:1rem">
+          <span style="font-size:14px;font-weight:500">Cuentas por cobrar próximas</span>
+          <a href="../cxc/cxc.html" style="font-size:12px;color:var(--color-accent)">Ver todas →</a>
+        </div>
+        <div id="cxc-wrap">
+          <div class="empty-state"><p>Cargando...</p></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="flex-between" style="margin-bottom:1rem">
+          <span style="font-size:14px;font-weight:500">Productos con stock bajo</span>
+          <a href="../productos/productos.html" style="font-size:12px;color:var(--color-accent)">Ver inventario →</a>
+        </div>
+        <div id="stock-wrap">
+          <div class="empty-state"><p>Cargando...</p></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Fila: Pedidos recientes + Top clientes -->
+    <div class="grid-2 mt-2">
+
+      <div class="card">
+        <div class="flex-between" style="margin-bottom:1rem">
+          <span style="font-size:14px;font-weight:500">Últimos pedidos</span>
+          <a href="../pedidos/pedidos.html" style="font-size:12px;color:var(--color-accent)">Ver todos →</a>
+        </div>
+        <div id="pedidos-wrap">
+          <div class="empty-state"><p>Cargando...</p></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="flex-between" style="margin-bottom:1rem">
+          <span style="font-size:14px;font-weight:500">Top clientes del mes</span>
+          <a href="../clientes/clientes.html" style="font-size:12px;color:var(--color-accent)">Ver todos →</a>
+        </div>
+        <div id="clientes-wrap">
+          <div class="empty-state"><p>Cargando...</p></div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/api.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script>
+requireAuth();
+
+// ── Redirección por rol ───────────────────────────────────────────────────────
+// Cada rol tiene su vista optimizada
+(function() {
+  const rol = api.getUser()?.rol;
+  if (rol === 'contador') {
+    window.location.replace('../contador/contador.html');
+    return;
+  }
+})();
+
+initSidebar('dashboard');
+
+// ── Saludo y fecha ────────────────────────────────────────────────────────────
+(function() {
+  const h = new Date().getHours();
+  const saludo = h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches';
+  const user = api.getUser();
+  document.getElementById('saludo').textContent =
+    `${saludo}${user?.nombre ? ', ' + user.nombre.split(' ')[0] : ''}`;
+  document.getElementById('fecha-hoy').textContent =
+    new Intl.DateTimeFormat('es-MX', { weekday:'long', day:'numeric', month:'long', year:'numeric' })
+      .format(new Date());
+})();
+
+// ── Trial banner ──────────────────────────────────────────────────────────────
+(function() {
+  const user = api.getUser();
+  if (user?.plan === 'trial' && user?.trial_hasta) {
+    const dias = Math.ceil((new Date(user.trial_hasta) - new Date()) / 86400000);
+    if (dias > 0) {
+      document.getElementById('trial-banner').style.display = 'flex';
+      document.getElementById('trial-texto').textContent =
+        `Te quedan ${dias} día${dias !== 1 ? 's' : ''} gratis. Activa tu plan para no perder tus datos.`;
+    }
+  }
+})();
+
+// ── Onboarding ────────────────────────────────────────────────────────────────
+async function loadOnboarding() {
+  try {
+    const user = api.getUser();
+    if (user?.onboarding_ok) return;
+
+    const data = await api.get('/onboarding');
+    if (data.porcentaje === 100) {
+      await api.post('/onboarding/completar', {});
+      return;
+    }
+
+    document.getElementById('onboard-wrap').style.display = 'block';
+    document.getElementById('onboard-pct').textContent    = data.porcentaje + '%';
+    document.getElementById('onboard-bar').style.width    = data.porcentaje + '%';
+
+    document.getElementById('onboard-steps').innerHTML = data.pasos.map(p => `
+      <div class="onboard-step">
+        <div class="step-check ${p.hecho ? 'done' : ''}">
+          ${p.hecho ? '✓' : ''}
+        </div>
+        <span style="${p.hecho ? 'text-decoration:line-through;opacity:.5' : ''}">${p.titulo}</span>
+      </div>
+    `).join('');
+  } catch(_) {}
+}
+
+// ── Dashboard principal ───────────────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    const [dash, pedidos, cxc, stockBajo, clientes, ingresos7] = await Promise.all([
+      api.get('/reportes/dashboard'),
+      api.get('/pedidos?limit=6'),
+      api.get('/cxc?estado=pendiente'),
+      api.get('/productos/stock-bajo'),
+      api.get('/clientes'),
+      api.get('/reportes/ingresos?dias=7'),
+    ]);
+
+    // ── KPIs fila 1 ────────────────────────────────────────────────────────
+    document.getElementById('k-hoy').textContent        = formatMoney(dash.cobrado_hoy   || 0);
+    document.getElementById('k-hoy-sub').textContent    = `${dash.pedidos_hoy || 0} pedidos hoy`;
+    document.getElementById('k-mes').textContent        = formatMoney(dash.cobrado_mes   || 0);
+    document.getElementById('k-cxc').textContent        = formatMoney(dash.por_cobrar    || 0);
+    document.getElementById('k-cxc-sub').textContent    = `${dash.cuentas_vigentes || 0} cuentas vigentes`;
+    document.getElementById('k-vencido').textContent    = formatMoney(dash.vencido       || 0);
+    document.getElementById('k-vencido-sub').textContent= `${dash.cuentas_vencidas || 0} cuentas vencidas`;
+
+    // ── KPIs fila 2 ────────────────────────────────────────────────────────
+    document.getElementById('k-pedidos-hoy').textContent = dash.pedidos_hoy || 0;
+    document.getElementById('k-proceso').textContent     = (Number(dash.pendientes||0) + Number(dash.en_camino||0));
+    document.getElementById('k-stock').textContent       = dash.productos_stock_bajo || 0;
+
+    const clientesMes = clientes.filter(c => Number(c.total_pedidos) > 0).length;
+    document.getElementById('k-clientes').textContent   = clientesMes;
+
+    // ── Alertas ────────────────────────────────────────────────────────────
+    const alertas = [];
+    if (Number(dash.cuentas_vencidas) > 0) {
+      alertas.push({ tipo:'danger', msg:`⚠️ Tienes ${dash.cuentas_vencidas} cuenta(s) vencida(s) por ${formatMoney(dash.vencido)}. <a href="../cxc/cxc.html">Ver ahora →</a>` });
+    }
+    if (Number(dash.productos_stock_bajo) > 0) {
+      alertas.push({ tipo:'warn', msg:`📦 ${dash.productos_stock_bajo} producto(s) están por debajo del stock mínimo. <a href="../productos/productos.html">Ver inventario →</a>` });
+    }
+    if (Number(dash.pendientes) > 5) {
+      alertas.push({ tipo:'info', msg:`🔔 Tienes ${dash.pendientes} pedidos pendientes sin atender.` });
+    }
+    const alertasEl = document.getElementById('alertas-wrap');
+    alertasEl.innerHTML = alertas.map(a =>
+      `<div class="alerta alerta-${a.tipo}"><div class="alerta-dot"></div><span>${a.msg}</span></div>`
+    ).join('');
+
+    // ── Gráfica ingresos 7 días ────────────────────────────────────────────
+    const chartEl = document.getElementById('chart-ingresos');
+    if (!ingresos7.length) {
+      chartEl.innerHTML = '<div style="margin:auto;color:var(--color-text-hint);font-size:13px">Sin datos esta semana</div>';
+    } else {
+      const maxVal = Math.max(...ingresos7.map(d => Number(d.ingresos)), 1);
+      const total7 = ingresos7.reduce((s, d) => s + Number(d.ingresos), 0);
+      document.getElementById('chart-total').textContent = formatMoney(total7);
+
+      // Llenar días faltantes con 0
+      const dias7 = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const key = d.toISOString().slice(0,10);
+        const found = ingresos7.find(r => r.fecha?.slice(0,10) === key);
+        dias7.push({ fecha: d, ingresos: found ? Number(found.ingresos) : 0 });
+      }
+
+      chartEl.innerHTML = dias7.map(d => {
+        const pct  = Math.round((d.ingresos / maxVal) * 100);
+        const dia  = new Intl.DateTimeFormat('es-MX', { weekday:'short' }).format(d.fecha);
+        return `
+          <div class="chart-bar-col" title="${formatMoney(d.ingresos)}">
+            <div class="chart-val">${d.ingresos > 0 ? formatMoney(d.ingresos).replace('$','').replace(',000','k') : ''}</div>
+            <div class="chart-bar" style="height:${Math.max(pct,3)}%"></div>
+            <div class="chart-label">${dia}</div>
+          </div>`;
+      }).join('');
+    }
+
+    // ── CxC próximas ───────────────────────────────────────────────────────
+    const cxcEl = document.getElementById('cxc-wrap');
+    const cxcTop = cxc.slice(0,5);
+    if (!cxcTop.length) {
+      cxcEl.innerHTML = '<div class="empty-state"><p>Sin cuentas por cobrar pendientes 🎉</p></div>';
+    } else {
+      cxcEl.innerHTML = cxcTop.map(c => {
+        const vence  = new Date(c.fecha_vence);
+        const hoy    = new Date();
+        const dias   = Math.ceil((vence - hoy) / 86400000);
+        const clase  = dias < 0 ? 'cxc-vencida' : dias <= 3 ? 'cxc-prox' : 'cxc-ok';
+        const label  = dias < 0 ? `${Math.abs(dias)}d vencida` : dias === 0 ? 'Hoy' : `${dias}d`;
+        const saldo  = Number(c.monto) - Number(c.monto_pagado);
+        return `
+          <div class="cxc-item">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.cliente_nombre}</div>
+              <div style="font-size:11px;color:var(--color-text-muted)">Vence: ${formatDate(c.fecha_vence)}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              <div style="font-size:13px;font-weight:600">${formatMoney(saldo)}</div>
+              <span class="cxc-dias ${clase}">${label}</span>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    // ── Stock bajo ─────────────────────────────────────────────────────────
+    const stockEl = document.getElementById('stock-wrap');
+    if (!stockBajo.length) {
+      stockEl.innerHTML = '<div class="empty-state"><p>Inventario en orden ✅</p></div>';
+    } else {
+      stockEl.innerHTML = stockBajo.slice(0,5).map(p => {
+        const pct = p.stock_minimo > 0 ? Math.min(Math.round((p.stock / p.stock_minimo) * 100), 100) : 0;
+        const col = pct <= 30 ? '#A32D2D' : pct <= 60 ? '#BA7517' : '#3B6D11';
+        return `
+          <div class="stock-item">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.nombre}</div>
+              <div class="stock-bar-wrap">
+                <div class="stock-bar-track">
+                  <div class="stock-bar-fill" style="width:${pct}%;background:${col}"></div>
+                </div>
+              </div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;margin-left:12px">
+              <div style="font-size:13px;font-weight:600;color:${col}">${p.stock}</div>
+              <div style="font-size:10px;color:var(--color-text-hint)">mín ${p.stock_minimo}</div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    // ── Últimos pedidos ────────────────────────────────────────────────────
+    const pedidosEl = document.getElementById('pedidos-wrap');
+    if (!pedidos.length) {
+      pedidosEl.innerHTML = '<div class="empty-state"><p>Sin pedidos aún</p></div>';
+    } else {
+      pedidosEl.innerHTML = pedidos.map(p => `
+        <div class="list-item">
+          <div class="list-item-content">
+            <div class="list-item-title">${p.cliente_nombre}</div>
+            <div class="list-item-sub">${p.descripcion || p.servicio_nombre || 'Pedido'} · ${formatDate(p.created_at)}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+            <div style="font-size:13px;font-weight:500">${formatMoney(p.total || p.monto || 0)}</div>
+            ${estadoBadge(p.estado)}
+          </div>
+        </div>`).join('');
+    }
+
+    // ── Top clientes ───────────────────────────────────────────────────────
+    const clientesEl = document.getElementById('clientes-wrap');
+    const topClientes = [...clientes]
+      .sort((a,b) => Number(b.total_facturado) - Number(a.total_facturado))
+      .slice(0,5);
+    if (!topClientes.length) {
+      clientesEl.innerHTML = '<div class="empty-state"><p>Sin clientes aún</p></div>';
+    } else {
+      clientesEl.innerHTML = topClientes.map((c, i) => {
+        const ini = c.nombre.split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase();
+        return `
+          <div class="list-item">
+            <div class="user-avatar" style="width:32px;height:32px;font-size:11px;flex-shrink:0">${ini}</div>
+            <div class="list-item-content">
+              <div class="list-item-title">${c.nombre}</div>
+              <div class="list-item-sub">${c.total_pedidos} pedido(s)</div>
+            </div>
+            <div class="list-item-end">${formatMoney(c.total_facturado)}</div>
+          </div>`;
+      }).join('');
+    }
+
+    // ── Actividad reciente (simulada desde pedidos) ───────────────────────
+    const actEl = document.getElementById('actividad-wrap');
+    const acts  = pedidos.slice(0,6).map(p => ({
+      texto: actividadTexto(p),
+      hora:  p.created_at,
+      color: actividadColor(p.estado),
+    }));
+    if (!acts.length) {
+      actEl.innerHTML = '<div class="empty-state"><p>Sin actividad reciente</p></div>';
+    } else {
+      actEl.innerHTML = acts.map(a => `
+        <div class="act-item">
+          <div class="act-dot-wrap"><div class="act-dot" style="background:${a.color}"></div></div>
+          <div>
+            <div class="act-texto">${a.texto}</div>
+            <div class="act-hora">${timeAgo(a.hora)}</div>
+          </div>
+        </div>`).join('');
+    }
+
+  } catch(err) {
+    showToast('Error cargando dashboard: ' + err.message, 'error');
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function actividadTexto(p) {
+  const labels = { pendiente:'Nuevo pedido registrado', en_camino:'Pedido en camino',
+                   entregado:'Pedido entregado', cancelado:'Pedido cancelado' };
+  return `${labels[p.estado] || 'Pedido actualizado'} — ${p.cliente_nombre}`;
+}
+function actividadColor(estado) {
+  return { pendiente:'#BA7517', en_camino:'#185FA5', entregado:'#3B6D11', cancelado:'#A32D2D' }[estado] || '#888';
+}
+function timeAgo(iso) {
+  const diff = Math.floor((Date.now() - new Date(iso)) / 60000);
+  if (diff < 1)   return 'Hace un momento';
+  if (diff < 60)  return `Hace ${diff} min`;
+  if (diff < 1440)return `Hace ${Math.floor(diff/60)} h`;
+  return `Hace ${Math.floor(diff/1440)} días`;
+}
+
+loadOnboarding();
+loadDashboard();
+</script>
+</body>
+</html>

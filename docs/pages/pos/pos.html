@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ServiGest — Punto de Venta</title>
+  <link rel="stylesheet" href="../../css/base.css"/>
+  <link rel="stylesheet" href="../../css/components.css"/>
+  <style>
+    .pos-layout { display:grid; grid-template-columns:1fr 340px; height:100vh; overflow:hidden; }
+
+    /* ── Panel izquierdo — productos ──────────────────────────────────────── */
+    .pos-productos { display:flex; flex-direction:column; height:100vh; }
+    .pos-header { padding:1rem 1.25rem; border-bottom:1px solid var(--color-border); display:flex; align-items:center; gap:12px; background:var(--color-bg); }
+    .pos-search { flex:1; position:relative; }
+    .pos-search input { width:100%; padding:10px 14px 10px 38px; border:1.5px solid var(--color-border-md); border-radius:var(--radius-md); font-size:14px; font-family:inherit; background:var(--color-bg-secondary); transition:border-color .15s; }
+    .pos-search input:focus { outline:none; border-color:var(--color-accent); background:var(--color-bg); }
+    .pos-search svg { position:absolute; left:10px; top:50%; transform:translateY(-50%); width:18px; height:18px; color:var(--color-text-hint); pointer-events:none; }
+    .categoria-tabs { display:flex; gap:6px; padding:.75rem 1.25rem; overflow-x:auto; border-bottom:1px solid var(--color-border); background:var(--color-bg); }
+    .cat-tab { padding:5px 14px; border-radius:20px; border:1px solid var(--color-border-md); background:transparent; font-size:12px; font-weight:500; color:var(--color-text-muted); cursor:pointer; font-family:inherit; white-space:nowrap; transition:all .1s; }
+    .cat-tab.active { background:var(--color-accent); color:#fff; border-color:var(--color-accent); }
+    .productos-grid { flex:1; overflow-y:auto; padding:1rem 1.25rem; display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; align-content:start; }
+    .prod-card { background:var(--color-bg); border:1px solid var(--color-border); border-radius:var(--radius-lg); padding:12px; cursor:pointer; transition:all .15s; user-select:none; }
+    .prod-card:hover { border-color:var(--color-accent); box-shadow:0 2px 8px rgba(29,158,117,.15); transform:translateY(-1px); }
+    .prod-card:active { transform:scale(.97); }
+    .prod-card.sin-stock { opacity:.45; cursor:not-allowed; }
+    .prod-card.sin-stock:hover { transform:none; border-color:var(--color-border); box-shadow:none; }
+    .prod-nombre { font-size:13px; font-weight:500; line-height:1.3; margin-bottom:6px; }
+    .prod-precio { font-size:15px; font-weight:700; color:var(--color-accent); }
+    .prod-stock  { font-size:11px; color:var(--color-text-hint); margin-top:3px; }
+    .prod-sku    { font-size:10px; color:var(--color-text-hint); font-family:monospace; }
+    .prod-empty  { grid-column:1/-1; text-align:center; padding:3rem; color:var(--color-text-muted); }
+
+    /* ── Panel derecho — carrito ──────────────────────────────────────────── */
+    .pos-carrito { background:var(--color-bg); border-left:1px solid var(--color-border); display:flex; flex-direction:column; height:100vh; }
+    .carrito-header { padding:1rem 1.25rem; border-bottom:1px solid var(--color-border); }
+    .carrito-titulo { font-size:15px; font-weight:600; }
+    .cliente-selector { margin-top:10px; }
+    .carrito-items { flex:1; overflow-y:auto; padding:.75rem 1rem; }
+    .carrito-empty { text-align:center; padding:2rem; color:var(--color-text-muted); font-size:13px; }
+    .carrito-item { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--color-border); }
+    .carrito-item:last-child { border-bottom:none; }
+    .ci-nombre { flex:1; font-size:13px; font-weight:500; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .ci-qty { display:flex; align-items:center; gap:4px; }
+    .ci-btn { width:26px; height:26px; border-radius:6px; border:1px solid var(--color-border-md); background:var(--color-bg-secondary); cursor:pointer; font-size:14px; font-weight:600; display:flex; align-items:center; justify-content:center; transition:background .1s; }
+    .ci-btn:hover { background:var(--color-bg-tertiary); }
+    .ci-num { font-size:13px; font-weight:600; min-width:22px; text-align:center; }
+    .ci-sub { font-size:13px; font-weight:500; min-width:60px; text-align:right; }
+    .ci-del { width:24px; height:24px; border-radius:50%; border:none; background:transparent; cursor:pointer; color:var(--color-text-hint); font-size:16px; display:flex; align-items:center; justify-content:center; }
+    .ci-del:hover { color:#A32D2D; background:#FCEBEB; }
+
+    /* ── Totales y cobro ──────────────────────────────────────────────────── */
+    .carrito-footer { padding:1rem; border-top:1px solid var(--color-border); }
+    .total-linea { display:flex; justify-content:space-between; font-size:13px; color:var(--color-text-muted); padding:3px 0; }
+    .total-linea.grande { font-size:18px; font-weight:700; color:var(--color-text); border-top:1px solid var(--color-border); margin-top:8px; padding-top:10px; }
+    .btn-cobrar { width:100%; padding:14px; font-size:16px; font-weight:600; background:var(--color-accent); color:#fff; border:none; border-radius:var(--radius-md); cursor:pointer; font-family:inherit; margin-top:12px; transition:background .15s; }
+    .btn-cobrar:hover { background:var(--color-accent-dark); }
+    .btn-cobrar:disabled { opacity:.5; cursor:not-allowed; }
+    .btn-limpiar { width:100%; padding:8px; font-size:13px; color:var(--color-text-muted); background:transparent; border:1px solid var(--color-border); border-radius:var(--radius-md); cursor:pointer; font-family:inherit; margin-top:6px; }
+    .btn-limpiar:hover { background:var(--color-bg-secondary); }
+
+    /* ── Modal cobro ──────────────────────────────────────────────────────── */
+    .cobro-metodo { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:.75rem 0; }
+    .metodo-btn { padding:10px; border:2px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-bg-secondary); cursor:pointer; font-family:inherit; font-size:13px; font-weight:500; text-align:center; transition:all .1s; }
+    .metodo-btn.active { border-color:var(--color-accent); background:var(--color-accent-light); color:var(--color-accent-dark); }
+
+    /* ── Ticket imprimible ────────────────────────────────────────────────── */
+    @media print {
+      body > *:not(#ticket-print) { display:none !important; }
+      #ticket-print { display:block !important; }
+    }
+    #ticket-print { display:none; font-family:monospace; font-size:12px; width:280px; margin:0 auto; }
+
+    @media(max-width:700px) {
+      .pos-layout { grid-template-columns:1fr; }
+      .pos-carrito { position:fixed; bottom:0; left:0; right:0; height:auto; max-height:50vh; z-index:50; border-top:2px solid var(--color-accent); border-left:none; }
+      .productos-grid { padding-bottom:55vh; }
+    }
+  </style>
+</head>
+<body>
+<div class="pos-layout">
+
+  <!-- ── Panel productos ──────────────────────────────────────────────────── -->
+  <div class="pos-productos">
+    <div class="pos-header">
+      <a href="../dashboard/dashboard.html" style="font-size:20px;font-weight:600;display:flex;align-items:center;gap:6px;text-decoration:none;color:inherit">
+        <div style="width:10px;height:10px;border-radius:50%;background:var(--color-accent)"></div>
+        ServiGest
+      </a>
+      <div class="pos-search">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="search-prod" placeholder="Buscar por nombre o SKU..." autocomplete="off"/>
+      </div>
+      <a href="../dashboard/dashboard.html" class="btn btn-secondary btn-sm">← Dashboard</a>
+    </div>
+
+    <div class="categoria-tabs" id="cat-tabs">
+      <button class="cat-tab active" data-cat="">Todos</button>
+    </div>
+
+    <div class="productos-grid" id="grid-productos">
+      <div class="prod-empty">Cargando productos...</div>
+    </div>
+  </div>
+
+  <!-- ── Panel carrito ────────────────────────────────────────────────────── -->
+  <div class="pos-carrito">
+    <div class="carrito-header">
+      <div class="carrito-titulo">🛒 Carrito</div>
+      <div class="cliente-selector">
+        <select class="form-select" id="sel-cliente" style="font-size:13px;min-height:34px">
+          <option value="">— Cliente (opcional) —</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="carrito-items" id="carrito-items">
+      <div class="carrito-empty">
+        Toca un producto para agregarlo
+      </div>
+    </div>
+
+    <div class="carrito-footer">
+      <div class="total-linea"><span>Subtotal</span><span id="tot-sub">$0</span></div>
+      <div class="total-linea"><span>IVA (16%)</span><span id="tot-iva">$0</span></div>
+      <div class="total-linea grande"><span>Total</span><span id="tot-total">$0</span></div>
+      <button class="btn-cobrar" id="btn-cobrar" disabled>Cobrar</button>
+      <button class="btn-limpiar" id="btn-limpiar">Limpiar carrito</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Modal de cobro ────────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-cobro" style="display:none">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <span class="modal-title">Confirmar cobro</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modal-cobro')">✕</button>
+    </div>
+
+    <div style="text-align:center;padding:1rem 0">
+      <div style="font-size:32px;font-weight:700;color:var(--color-accent)" id="cobro-total-display">$0</div>
+      <div style="font-size:13px;color:var(--color-text-muted);margin-top:4px" id="cobro-items-display"></div>
+    </div>
+
+    <div>
+      <div style="font-size:12px;font-weight:500;color:var(--color-text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">Forma de pago</div>
+      <div class="cobro-metodo">
+        <button class="metodo-btn active" data-metodo="efectivo">💵 Efectivo</button>
+        <button class="metodo-btn" data-metodo="transferencia">📱 Transferencia</button>
+        <button class="metodo-btn" data-metodo="tarjeta">💳 Tarjeta</button>
+      </div>
+    </div>
+
+    <div class="form-group" id="efectivo-wrap">
+      <label class="form-label">¿Con cuánto paga?</label>
+      <input class="form-input" type="number" id="pago-con" placeholder="0.00" style="font-size:18px;text-align:center"/>
+      <div style="text-align:center;font-size:14px;margin-top:8px;color:var(--color-accent);font-weight:600" id="cambio-display"></div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-cobro')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-confirmar-cobro" style="font-size:15px;padding:10px 24px">✓ Confirmar venta</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Ticket para imprimir ───────────────────────────────────────────────── -->
+<div id="ticket-print"></div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/api.js"></script>
+<script src="../../js/auth.js"></script>
+<script>
+requireAuth();
+
+let todosProductos = [];
+let carrito        = [];   // [{ producto, cantidad }]
+let metodoActivo   = 'efectivo';
+let categorias     = [];
+
+// ── Cargar datos iniciales ────────────────────────────────────────────────────
+async function init() {
+  try {
+    const [prods, clientes] = await Promise.all([
+      api.productos.list(),
+      api.clientes.list(),
+    ]);
+
+    todosProductos = prods;
+
+    // Categorías únicas
+    categorias = [...new Set(prods.map(p => p.unidad).filter(Boolean))];
+    const tabs = document.getElementById('cat-tabs');
+    categorias.forEach(cat => {
+      const btn = document.createElement('button');
+      btn.className = 'cat-tab';
+      btn.dataset.cat = cat;
+      btn.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
+      tabs.appendChild(btn);
+    });
+
+    // Clientes en selector
+    const sel = document.getElementById('sel-cliente');
+    clientes.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.nombre;
+      sel.appendChild(opt);
+    });
+
+    renderProductos(todosProductos);
+  } catch(err) {
+    showToast('Error cargando productos: ' + err.message, 'error');
+  }
+}
+
+// ── Renderizar grilla de productos ────────────────────────────────────────────
+function renderProductos(lista) {
+  const grid = document.getElementById('grid-productos');
+  if (!lista.length) {
+    grid.innerHTML = '<div class="prod-empty">Sin productos. <a href="../productos/productos.html">Agrega productos →</a></div>';
+    return;
+  }
+
+  grid.innerHTML = lista.map(p => {
+    const sinStock = p.stock <= 0;
+    return `
+      <div class="prod-card ${sinStock ? 'sin-stock' : ''}"
+           onclick="${sinStock ? "showToast('Sin stock disponible','error')" : `agregarAlCarrito('${p.id}')`}"
+           title="${sinStock ? 'Sin stock' : 'Agregar al carrito'}">
+        <div class="prod-sku">${p.sku || ''}</div>
+        <div class="prod-nombre">${p.nombre}</div>
+        <div class="prod-precio">${formatMoney(p.precio)}</div>
+        <div class="prod-stock">${sinStock ? '⚠ Sin stock' : `Stock: ${p.stock} ${p.unidad || ''}`}</div>
+      </div>`;
+  }).join('');
+}
+
+// ── Filtros ───────────────────────────────────────────────────────────────────
+document.getElementById('search-prod').addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  const filtrado = todosProductos.filter(p =>
+    p.nombre.toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q)
+  );
+  renderProductos(filtrado);
+});
+
+document.getElementById('cat-tabs').addEventListener('click', e => {
+  const btn = e.target.closest('.cat-tab');
+  if (!btn) return;
+  document.querySelectorAll('.cat-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const cat = btn.dataset.cat;
+  renderProductos(cat ? todosProductos.filter(p => p.unidad === cat) : todosProductos);
+});
+
+// ── Carrito ───────────────────────────────────────────────────────────────────
+function agregarAlCarrito(productoId) {
+  const prod = todosProductos.find(p => p.id === productoId);
+  if (!prod) return;
+
+  const existe = carrito.find(i => i.producto.id === productoId);
+  if (existe) {
+    if (existe.cantidad >= prod.stock) {
+      showToast(`Solo hay ${prod.stock} en stock`, 'warning');
+      return;
+    }
+    existe.cantidad++;
+  } else {
+    carrito.push({ producto: prod, cantidad: 1 });
+  }
+
+  renderCarrito();
+
+  // Feedback visual rápido
+  const cards = document.querySelectorAll('.prod-card');
+  cards.forEach(card => {
+    if (card.onclick?.toString().includes(productoId)) {
+      card.style.transform = 'scale(0.95)';
+      setTimeout(() => card.style.transform = '', 150);
+    }
+  });
+}
+
+function cambiarCantidad(productoId, delta) {
+  const item = carrito.find(i => i.producto.id === productoId);
+  if (!item) return;
+  item.cantidad += delta;
+  if (item.cantidad <= 0) {
+    carrito = carrito.filter(i => i.producto.id !== productoId);
+  }
+  renderCarrito();
+}
+
+function quitarDelCarrito(productoId) {
+  carrito = carrito.filter(i => i.producto.id !== productoId);
+  renderCarrito();
+}
+
+function renderCarrito() {
+  const el = document.getElementById('carrito-items');
+
+  if (!carrito.length) {
+    el.innerHTML = '<div class="carrito-empty">Toca un producto para agregarlo</div>';
+    document.getElementById('btn-cobrar').disabled = true;
+    actualizarTotales(0, 0, 0);
+    return;
+  }
+
+  el.innerHTML = carrito.map(item => `
+    <div class="carrito-item">
+      <div class="ci-nombre" title="${item.producto.nombre}">${item.producto.nombre}</div>
+      <div class="ci-qty">
+        <button class="ci-btn" onclick="cambiarCantidad('${item.producto.id}',-1)">−</button>
+        <span class="ci-num">${item.cantidad}</span>
+        <button class="ci-btn" onclick="cambiarCantidad('${item.producto.id}',1)">+</button>
+      </div>
+      <div class="ci-sub">${formatMoney(item.producto.precio * item.cantidad)}</div>
+      <button class="ci-del" onclick="quitarDelCarrito('${item.producto.id}')" title="Quitar">✕</button>
+    </div>`).join('');
+
+  const subtotal  = carrito.reduce((s, i) => s + i.producto.precio * i.cantidad, 0);
+  const iva       = subtotal * 0.16;
+  const total     = subtotal + iva;
+  actualizarTotales(subtotal, iva, total);
+  document.getElementById('btn-cobrar').disabled = false;
+}
+
+function actualizarTotales(sub, iva, total) {
+  document.getElementById('tot-sub').textContent   = formatMoney(sub);
+  document.getElementById('tot-iva').textContent   = formatMoney(iva);
+  document.getElementById('tot-total').textContent = formatMoney(total);
+}
+
+document.getElementById('btn-limpiar').addEventListener('click', () => {
+  if (!carrito.length) return;
+  if (confirm('¿Limpiar el carrito?')) { carrito = []; renderCarrito(); }
+});
+
+// ── Modal de cobro ────────────────────────────────────────────────────────────
+document.getElementById('btn-cobrar').addEventListener('click', () => {
+  const subtotal = carrito.reduce((s,i) => s + i.producto.precio * i.cantidad, 0);
+  const total    = subtotal * 1.16;
+
+  document.getElementById('cobro-total-display').textContent = formatMoney(total);
+  document.getElementById('cobro-items-display').textContent =
+    `${carrito.length} producto(s) · ${carrito.reduce((s,i)=>s+i.cantidad,0)} unidades`;
+  document.getElementById('pago-con').value = '';
+  document.getElementById('cambio-display').textContent = '';
+
+  openModal('modal-cobro');
+  setTimeout(() => document.getElementById('pago-con').focus(), 100);
+});
+
+// Métodos de pago
+document.querySelectorAll('.metodo-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.metodo-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    metodoActivo = btn.dataset.metodo;
+    document.getElementById('efectivo-wrap').style.display =
+      metodoActivo === 'efectivo' ? 'block' : 'none';
+  });
+});
+
+// Calcular cambio
+document.getElementById('pago-con').addEventListener('input', function() {
+  const subtotal = carrito.reduce((s,i) => s + i.producto.precio * i.cantidad, 0);
+  const total    = subtotal * 1.16;
+  const pagaCon  = parseFloat(this.value) || 0;
+  const cambio   = pagaCon - total;
+  const el       = document.getElementById('cambio-display');
+  if (pagaCon > 0) {
+    el.textContent = cambio >= 0
+      ? `Cambio: ${formatMoney(cambio)}`
+      : `Faltan: ${formatMoney(Math.abs(cambio))}`;
+    el.style.color = cambio >= 0 ? 'var(--color-accent)' : '#A32D2D';
+  } else {
+    el.textContent = '';
+  }
+});
+
+// ── Confirmar venta ───────────────────────────────────────────────────────────
+document.getElementById('btn-confirmar-cobro').addEventListener('click', async () => {
+  setBtnLoading('btn-confirmar-cobro', true, 'Registrando...');
+  try {
+    const clienteId = document.getElementById('sel-cliente').value || null;
+    const subtotal  = carrito.reduce((s,i) => s + i.producto.precio * i.cantidad, 0);
+    const total     = subtotal * 1.16;
+
+    // Crear pedido con los items del carrito
+    const items = carrito.map(i => ({
+      producto_id: i.producto.id,
+      descripcion: i.producto.nombre,
+      cantidad:    i.cantidad,
+      precio_unit: i.producto.precio,
+      descuento:   0,
+    }));
+
+    const pedido = await api.pedidos.create({
+      cliente_id:  clienteId || await getClienteGenerico(),
+      descripcion: 'Venta de mostrador',
+      estado:      'entregado',
+      iva:         true,
+      items,
+    });
+
+    closeModal('modal-cobro');
+    imprimirTicket(pedido, metodoActivo);
+    showToast(`✅ Venta registrada — ${formatMoney(total)}`);
+    carrito = [];
+    renderCarrito();
+
+    // Recargar productos para actualizar stock
+    todosProductos = await api.productos.list();
+    const catActiva = document.querySelector('.cat-tab.active')?.dataset.cat || '';
+    renderProductos(catActiva ? todosProductos.filter(p=>p.unidad===catActiva) : todosProductos);
+
+  } catch(err) {
+    showToast(err.message, 'error');
+  } finally {
+    setBtnLoading('btn-confirmar-cobro', false, '✓ Confirmar venta');
+  }
+});
+
+// Cliente genérico para ventas sin cliente asignado
+async function getClienteGenerico() {
+  const lista = await api.clientes.list();
+  const generico = lista.find(c => c.nombre.toLowerCase().includes('mostrador') || c.nombre.toLowerCase().includes('generico'));
+  if (generico) return generico.id;
+
+  // Crear cliente genérico si no existe
+  const nuevo = await api.clientes.create({ nombre: 'Cliente Mostrador', telefono: '', email: '' });
+  return nuevo.id;
+}
+
+// ── Imprimir ticket ───────────────────────────────────────────────────────────
+function imprimirTicket(pedido, metodo) {
+  const empresa = api.getUser()?.empresa_nombre || 'ServiGest';
+  const fecha   = new Intl.DateTimeFormat('es-MX', {
+    day:'numeric', month:'short', year:'numeric',
+    hour:'2-digit', minute:'2-digit'
+  }).format(new Date());
+
+  const subtotal = carrito.reduce((s,i) => s + i.producto.precio * i.cantidad, 0);
+  const iva      = subtotal * 0.16;
+  const total    = subtotal + iva;
+
+  const itemsHTML = carrito.map(i => `
+    <tr>
+      <td style="padding:2px 0">${i.producto.nombre}</td>
+      <td style="text-align:center">${i.cantidad}</td>
+      <td style="text-align:right">${formatMoney(i.producto.precio * i.cantidad)}</td>
+    </tr>`).join('');
+
+  document.getElementById('ticket-print').innerHTML = `
+    <div style="text-align:center;padding:10px 0;border-bottom:1px dashed #000;margin-bottom:8px">
+      <div style="font-size:16px;font-weight:bold">${empresa}</div>
+      <div style="font-size:11px">${fecha}</div>
+      <div style="font-size:11px">Folio: #${String(pedido.numero).padStart(4,'0')}</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px">
+      <thead><tr>
+        <th style="text-align:left;border-bottom:1px solid #000;padding:2px 0">Producto</th>
+        <th style="text-align:center;border-bottom:1px solid #000">Cant</th>
+        <th style="text-align:right;border-bottom:1px solid #000">Total</th>
+      </tr></thead>
+      <tbody>${itemsHTML}</tbody>
+    </table>
+    <div style="border-top:1px dashed #000;margin-top:8px;padding-top:8px;font-size:12px">
+      <div style="display:flex;justify-content:space-between"><span>Subtotal</span><span>${formatMoney(subtotal)}</span></div>
+      <div style="display:flex;justify-content:space-between"><span>IVA 16%</span><span>${formatMoney(iva)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:14px;margin-top:4px"><span>TOTAL</span><span>${formatMoney(total)}</span></div>
+      <div style="margin-top:6px;font-size:11px">Pago: ${metodo}</div>
+    </div>
+    <div style="text-align:center;margin-top:10px;font-size:10px;border-top:1px dashed #000;padding-top:8px">
+      ¡Gracias por su compra!<br>Powered by ServiGest
+    </div>
+  `;
+
+  setTimeout(() => window.print(), 300);
+}
+
+init();
+</script>
+</body>
+</html>

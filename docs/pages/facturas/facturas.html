@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ServiGest — Facturas CFDI</title>
+  <link rel="stylesheet" href="../../css/base.css" />
+  <link rel="stylesheet" href="../../css/components.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="logo"><div class="logo-dot"></div>ServiGest</div>
+    <nav id="sidebar-nav"></nav>
+    <div class="sidebar-user">
+      <div class="user-avatar">--</div>
+      <div><div class="user-name">Cargando...</div><div class="user-empresa"></div></div>
+    </div>
+    <button id="btn-logout" class="btn btn-ghost btn-sm" style="margin-top:8px">Cerrar sesión</button>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Facturas CFDI</h1>
+        <p class="page-subtitle">Timbrado electrónico ante el SAT</p>
+      </div>
+      <button class="btn btn-primary" id="btn-nueva">+ Nueva factura</button>
+    </div>
+
+    <!-- Aviso si no hay Facturapi configurado -->
+    <div class="alert alert-warning" id="aviso-facturapi" style="display:none;margin-bottom:1rem">
+      ⚙️ Para timbrar facturas CFDI necesitas configurar tu clave de Facturapi.
+      <a href="../ajustes/ajustes.html" style="font-weight:600;text-decoration:underline">Ir a Ajustes →</a>
+    </div>
+
+    <!-- Filtros -->
+    <div class="flex gap-8" style="margin-bottom:1rem;flex-wrap:wrap">
+      <button class="btn btn-secondary btn-sm filtro-btn active" data-estado="">Todas</button>
+      <button class="btn btn-secondary btn-sm filtro-btn" data-estado="borrador">Borrador</button>
+      <button class="btn btn-secondary btn-sm filtro-btn" data-estado="timbrado">Timbradas</button>
+      <button class="btn btn-secondary btn-sm filtro-btn" data-estado="cancelado">Canceladas</button>
+    </div>
+
+    <div class="card" style="padding:0">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Folio</th>
+              <th>Cliente</th>
+              <th>Subtotal</th>
+              <th>IVA</th>
+              <th>Total</th>
+              <th>Fecha</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-facturas">
+            <tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal nueva factura -->
+<div class="modal-overlay" id="modal-factura">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header">
+      <span class="modal-title">Nueva factura</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modal-factura')">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:1rem">
+      <div class="form-group">
+        <label class="form-label">Cliente *</label>
+        <select class="form-select" id="f-cliente"></select>
+      </div>
+      <div>
+        <div class="flex-between" style="margin-bottom:8px">
+          <span style="font-size:13px;font-weight:500;color:var(--color-text-muted)">Conceptos</span>
+          <button class="btn btn-secondary btn-sm" id="btn-add-item">+ Agregar línea</button>
+        </div>
+        <div id="items-factura"></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;flex-direction:column;align-items:flex-end;gap:4px;padding-top:10px;border-top:1px solid var(--color-border)">
+        <div style="font-size:12px;color:var(--color-text-muted)">Subtotal: <span id="f-subtotal">$0</span></div>
+        <div style="font-size:12px;color:var(--color-text-muted)">IVA 16%: <span id="f-iva">$0</span></div>
+        <div style="font-size:16px;font-weight:600">Total: <span id="f-total">$0</span></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notas</label>
+        <textarea class="form-textarea" id="f-notas" placeholder="Observaciones opcionales"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-factura')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-factura">Guardar borrador</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal cancelar -->
+<div class="modal-overlay" id="modal-cancelar">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <span class="modal-title">Cancelar factura</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modal-cancelar')">✕</button>
+    </div>
+    <input type="hidden" id="cancel-id" />
+    <div class="form-group">
+      <label class="form-label">Motivo de cancelación</label>
+      <select class="form-select" id="cancel-motivo">
+        <option value="01">01 — Comprobante emitido con errores con relación</option>
+        <option value="02" selected>02 — Comprobante emitido con errores sin relación</option>
+        <option value="03">03 — No se llevó a cabo la operación</option>
+        <option value="04">04 — Operación nominativa relacionada en una factura global</option>
+      </select>
+    </div>
+    <div class="alert alert-warning" style="margin-top:.5rem">
+      ⚠️ Esta acción no se puede deshacer. El SAT procesará la cancelación.
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-cancelar')">Regresar</button>
+      <button class="btn btn-primary" id="btn-confirmar-cancelar" style="background:#A32D2D;border-color:#A32D2D">Cancelar factura</button>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/api.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script>
+  requireAuth();
+  initSidebar('facturas');
+
+  let filtroEstado = '';
+  let clientes     = [];
+
+  async function loadFacturas() {
+    try {
+      const f = await api.facturas.list({ estado: filtroEstado });
+      const tbody = document.getElementById('tabla-facturas');
+      if (!f.length) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Sin facturas aún</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = f.map(fac => {
+        const acciones = fac.estado === 'borrador'  ? `
+            <button class="btn btn-secondary btn-sm" onclick="timbrar('${fac.id}')">🖊 Timbrar</button>` :
+          fac.estado === 'timbrado' ? `
+            <button class="btn btn-ghost btn-sm" onclick="abrirCancelar('${fac.id}')">Cancelar</button>` : '';
+        return `<tr>
+          <td style="font-size:13px;font-weight:500">${fac.folio ? `A-${fac.folio}` : '—'}</td>
+          <td style="font-size:13px">${fac.cliente_nombre}</td>
+          <td>${formatMoney(fac.subtotal)}</td>
+          <td style="color:var(--color-text-muted)">${formatMoney(fac.impuestos)}</td>
+          <td style="font-weight:600">${formatMoney(fac.total)}</td>
+          <td style="font-size:12px;color:var(--color-text-muted)">${formatDate(fac.created_at)}</td>
+          <td>${estadoBadge(fac.estado)}</td>
+          <td><div class="flex gap-8">${acciones}</div></td>
+        </tr>`;
+      }).join('');
+    } catch(err) { showToast(err.message, 'error'); }
+  }
+
+  // Filtros
+  document.querySelectorAll('.filtro-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      filtroEstado = btn.dataset.estado;
+      loadFacturas();
+    });
+  });
+
+  // Nueva factura
+  document.getElementById('btn-nueva').addEventListener('click', async () => {
+    clientes = await api.clientes.list();
+    const sel = document.getElementById('f-cliente');
+    sel.innerHTML = clientes.map(c => `<option value="${c.id}">${c.nombre}${c.rfc ? ' — ' + c.rfc : ''}</option>`).join('');
+    document.getElementById('items-factura').innerHTML = '';
+    document.getElementById('f-notas').value = '';
+    agregarItemFactura();
+    calcularTotales();
+    openModal('modal-factura');
+  });
+
+  document.getElementById('btn-add-item').addEventListener('click', agregarItemFactura);
+
+  function agregarItemFactura() {
+    const wrap = document.getElementById('items-factura');
+    const div  = document.createElement('div');
+    div.style.cssText = 'display:grid;grid-template-columns:1fr 80px 110px auto;gap:8px;margin-bottom:8px;align-items:end';
+    div.innerHTML = `
+      <div class="form-group" style="margin:0">
+        <input class="form-input item-desc" placeholder="Descripción del servicio" style="font-size:13px" />
+      </div>
+      <div class="form-group" style="margin:0">
+        <input class="form-input item-qty" type="number" value="1" min="1" placeholder="Cant." style="font-size:13px" />
+      </div>
+      <div class="form-group" style="margin:0">
+        <input class="form-input item-price" type="number" min="0" placeholder="Precio unit." style="font-size:13px" />
+      </div>
+      <button class="btn btn-ghost btn-icon" onclick="this.parentElement.remove();calcularTotales()" style="margin-bottom:0">✕</button>
+    `;
+    div.querySelectorAll('input').forEach(i => i.addEventListener('input', calcularTotales));
+    wrap.appendChild(div);
+  }
+
+  function calcularTotales() {
+    let sub = 0;
+    document.querySelectorAll('#items-factura > div').forEach(div => {
+      const q = parseFloat(div.querySelector('.item-qty')?.value)   || 0;
+      const p = parseFloat(div.querySelector('.item-price')?.value) || 0;
+      sub += q * p;
+    });
+    const iva   = sub * 0.16;
+    const total = sub + iva;
+    document.getElementById('f-subtotal').textContent = formatMoney(sub);
+    document.getElementById('f-iva').textContent      = formatMoney(iva);
+    document.getElementById('f-total').textContent    = formatMoney(total);
+  }
+
+  document.getElementById('btn-guardar-factura').addEventListener('click', async () => {
+    const items = [];
+    document.querySelectorAll('#items-factura > div').forEach(div => {
+      const desc  = div.querySelector('.item-desc')?.value?.trim();
+      const qty   = parseFloat(div.querySelector('.item-qty')?.value)   || 0;
+      const price = parseFloat(div.querySelector('.item-price')?.value) || 0;
+      if (desc && qty && price) items.push({ descripcion: desc, cantidad: qty, precio_unit: price });
+    });
+    if (!items.length) return showToast('Agrega al menos un concepto', 'error');
+    try {
+      await api.facturas.create({
+        cliente_id: document.getElementById('f-cliente').value,
+        items,
+        notas: document.getElementById('f-notas').value,
+      });
+      showToast('Factura guardada como borrador');
+      closeModal('modal-factura');
+      loadFacturas();
+    } catch(err) { showToast(err.message, 'error'); }
+  });
+
+  async function timbrar(id) {
+    if (!confirm('¿Timbrar esta factura ante el SAT? Una vez timbrada no se puede editar.')) return;
+    try {
+      showToast('Timbrando... esto puede tardar unos segundos');
+      await api.facturas.timbrar(id);
+      showToast('✅ Factura timbrada exitosamente');
+      loadFacturas();
+    } catch(err) { showToast(err.message, 'error'); }
+  }
+
+  function abrirCancelar(id) {
+    document.getElementById('cancel-id').value = id;
+    openModal('modal-cancelar');
+  }
+
+  document.getElementById('btn-confirmar-cancelar').addEventListener('click', async () => {
+    const id     = document.getElementById('cancel-id').value;
+    const motivo = document.getElementById('cancel-motivo').value;
+    try {
+      await api.facturas.cancelar(id, motivo);
+      showToast('Factura cancelada');
+      closeModal('modal-cancelar');
+      loadFacturas();
+    } catch(err) { showToast(err.message, 'error'); }
+  });
+
+  loadFacturas();
+</script>
+</body>
+</html>

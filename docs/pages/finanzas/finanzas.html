@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ServiGest — Finanzas</title>
+  <link rel="stylesheet" href="../../css/base.css" />
+  <link rel="stylesheet" href="../../css/components.css" />
+  <style>
+    .periodo-btn { transition: background 0.1s, color 0.1s; }
+    .periodo-btn.active { background: var(--color-accent-light); color: var(--color-accent-dark); border-color: var(--color-accent); font-weight: 500; }
+    .barra-wrap { display: flex; flex-direction: column; gap: 10px; }
+    .barra-row { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+    .barra-label { width: 100px; color: var(--color-text-muted); text-align: right; flex-shrink: 0; font-size: 12px; }
+    .barra-track { flex: 1; height: 10px; background: var(--color-bg-tertiary); border-radius: 20px; overflow: hidden; }
+    .barra-fill  { height: 100%; background: var(--color-accent); border-radius: 20px; transition: width 0.5s ease; }
+    .barra-value { width: 80px; text-align: right; font-weight: 500; flex-shrink: 0; }
+    .stat-big { text-align: center; padding: 1.5rem 1rem; }
+    .stat-big .num { font-size: 32px; font-weight: 600; color: var(--color-text); }
+    .stat-big .lbl { font-size: 13px; color: var(--color-text-muted); margin-top: 4px; }
+    .stat-big .sub { font-size: 12px; margin-top: 6px; }
+  </style>
+</head>
+<body>
+
+<div class="layout">
+    <aside class="sidebar">
+    <div class="logo"><div class="logo-dot"></div>ServiGest</div>
+    <nav id="sidebar-nav"></nav>
+    <div class="sidebar-user">
+      <div class="user-avatar">--</div>
+      <div><div class="user-name">Cargando...</div><div class="user-empresa"></div></div>
+    </div>
+    <button id="btn-logout" class="btn btn-ghost btn-sm" style="margin-top:8px">Cerrar sesión</button>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Finanzas</h1>
+        <p class="page-subtitle">Resumen de ingresos y rendimiento</p>
+      </div>
+      <div class="flex gap-8">
+        <button class="btn btn-secondary btn-sm periodo-btn active" data-dias="7">7 días</button>
+        <button class="btn btn-secondary btn-sm periodo-btn" data-dias="30">30 días</button>
+        <button class="btn btn-secondary btn-sm periodo-btn" data-dias="90">90 días</button>
+      </div>
+    </div>
+
+    <!-- KPIs grandes -->
+    <div class="grid-4" style="margin-bottom:1.5rem" id="kpis">
+      <div class="card stat-big"><div class="num" id="k-total">—</div><div class="lbl">Ingresos del período</div><div class="sub text-muted" id="k-total-sub"></div></div>
+      <div class="card stat-big"><div class="num" id="k-promedio">—</div><div class="lbl">Ticket promedio</div><div class="sub text-muted">Por servicio entregado</div></div>
+      <div class="card stat-big"><div class="num" id="k-entregados">—</div><div class="lbl">Servicios completados</div><div class="sub text-muted" id="k-tasa"></div></div>
+      <div class="card stat-big"><div class="num" id="k-clientes">—</div><div class="lbl">Clientes atendidos</div><div class="sub text-muted">En el período</div></div>
+    </div>
+
+    <div class="grid-2">
+
+      <!-- Ingresos por categoría -->
+      <div class="card">
+        <div class="section-title" style="font-size:11px;font-weight:500;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:1rem">Ingresos por categoría</div>
+        <div id="barras-categoria">
+          <div style="text-align:center;padding:2rem;color:var(--color-text-muted);font-size:13px">Cargando...</div>
+        </div>
+      </div>
+
+      <!-- Últimos pagos recibidos -->
+      <div class="card">
+        <div class="section-title" style="font-size:11px;font-weight:500;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:1rem">Últimos servicios cobrados</div>
+        <div id="lista-cobrados">
+          <div style="text-align:center;padding:2rem;color:var(--color-text-muted);font-size:13px">Cargando...</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Tabla resumen mensual -->
+    <div class="card mt-2" style="padding:0">
+      <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--color-border)">
+        <span style="font-size:14px;font-weight:500">Desglose de pedidos</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Servicio</th><th>Cliente</th><th>Categoría</th><th>Monto</th><th>Fecha</th><th>Estado</th></tr>
+          </thead>
+          <tbody id="tabla-finanzas">
+            <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/api.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script>
+  requireAuth();
+  initSidebar('finanzas');
+
+  let diasActivos = 7;
+
+  async function loadFinanzas() {
+    try {
+      const desde = new Date();
+      desde.setDate(desde.getDate() - diasActivos);
+      const pedidos = await api.pedidos.list({ desde: desde.toISOString() });
+
+      const entregados = pedidos.filter(p => p.estado === 'entregado');
+      const totalIngresos = entregados.reduce((s, p) => s + Number(p.monto), 0);
+      const ticketPromedio = entregados.length ? totalIngresos / entregados.length : 0;
+      const clientesUnicos = new Set(entregados.map(p => p.cliente_nombre)).size;
+      const tasaExito = pedidos.length ? Math.round((entregados.length / pedidos.length) * 100) : 0;
+
+      // KPIs
+      document.getElementById('k-total').textContent      = formatMoney(totalIngresos);
+      document.getElementById('k-total-sub').textContent  = `${pedidos.length} pedidos totales`;
+      document.getElementById('k-promedio').textContent   = formatMoney(ticketPromedio);
+      document.getElementById('k-entregados').textContent = entregados.length;
+      document.getElementById('k-tasa').textContent       = `${tasaExito}% tasa de éxito`;
+      document.getElementById('k-clientes').textContent   = clientesUnicos;
+
+      // Barras por categoría
+      const porCategoria = {};
+      entregados.forEach(p => {
+        const cat = p.categoria || p.servicio_nombre || 'Sin categoría';
+        porCategoria[cat] = (porCategoria[cat] || 0) + Number(p.monto);
+      });
+
+      const maxVal = Math.max(...Object.values(porCategoria), 1);
+      const barrasEl = document.getElementById('barras-categoria');
+
+      if (Object.keys(porCategoria).length === 0) {
+        barrasEl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--color-text-muted);font-size:13px">Sin datos en este período</div>';
+      } else {
+        barrasEl.innerHTML = Object.entries(porCategoria)
+          .sort((a, b) => b[1] - a[1])
+          .map(([cat, monto]) => `
+            <div class="barra-row">
+              <div class="barra-label">${cat}</div>
+              <div class="barra-track">
+                <div class="barra-fill" style="width:${Math.round((monto/maxVal)*100)}%"></div>
+              </div>
+              <div class="barra-value">${formatMoney(monto)}</div>
+            </div>
+          `).join('');
+      }
+
+      // Últimos cobrados
+      const listaEl = document.getElementById('lista-cobrados');
+      const ultimos = entregados.slice(0, 6);
+      if (ultimos.length === 0) {
+        listaEl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--color-text-muted);font-size:13px">Sin servicios cobrados aún</div>';
+      } else {
+        listaEl.innerHTML = ultimos.map(p => `
+          <div class="list-item">
+            <div class="list-item-content">
+              <div class="list-item-title">${p.cliente_nombre}</div>
+              <div class="list-item-sub">${p.servicio_nombre || p.descripcion || 'Servicio'} · ${formatDate(p.created_at)}</div>
+            </div>
+            <div class="list-item-end" style="color:var(--color-accent-dark)">${formatMoney(p.monto)}</div>
+          </div>
+        `).join('');
+      }
+
+      // Tabla desglose
+      const tablaEl = document.getElementById('tabla-finanzas');
+      if (pedidos.length === 0) {
+        tablaEl.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Sin pedidos en este período</td></tr>`;
+      } else {
+        tablaEl.innerHTML = pedidos.map(p => `
+          <tr>
+            <td style="font-size:13px;font-weight:500">${p.servicio_nombre || 'Servicio'}</td>
+            <td style="font-size:13px">${p.cliente_nombre}</td>
+            <td style="font-size:12px;color:var(--color-text-muted)">${p.categoria || '—'}</td>
+            <td style="font-weight:500">${formatMoney(p.monto)}</td>
+            <td style="font-size:12px;color:var(--color-text-muted)">${formatDate(p.created_at)}</td>
+            <td>${estadoBadge(p.estado)}</td>
+          </tr>
+        `).join('');
+      }
+
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  // Filtros de período
+  document.querySelectorAll('.periodo-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.periodo-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      diasActivos = parseInt(btn.dataset.dias);
+      loadFinanzas();
+    });
+  });
+
+  loadFinanzas();
+</script>
+</body>
+</html>

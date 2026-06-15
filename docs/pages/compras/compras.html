@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ServiGest — Compras</title>
+  <link rel="stylesheet" href="../../css/base.css" />
+  <link rel="stylesheet" href="../../css/components.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="logo"><div class="logo-dot"></div>ServiGest</div>
+    <nav id="sidebar-nav"></nav>
+    <div class="sidebar-user">
+      <div class="user-avatar">--</div>
+      <div><div class="user-name">Cargando...</div><div class="user-empresa"></div></div>
+    </div>
+    <button id="btn-logout" class="btn btn-ghost btn-sm" style="margin-top:8px">Cerrar sesión</button>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Compras</h1>
+        <p class="page-subtitle">Órdenes de compra a proveedores</p>
+      </div>
+      <button class="btn btn-primary" id="btn-nueva">+ Nueva compra</button>
+    </div>
+
+    <div class="flex gap-8" style="margin-bottom:1rem">
+      <button class="btn btn-secondary btn-sm filtro-btn active" data-estado="">Todas</button>
+      <button class="btn btn-secondary btn-sm filtro-btn" data-estado="pendiente">Pendientes</button>
+      <button class="btn btn-secondary btn-sm filtro-btn" data-estado="recibida">Recibidas</button>
+      <button class="btn btn-secondary btn-sm filtro-btn" data-estado="cancelada">Canceladas</button>
+    </div>
+
+    <div class="card" style="padding:0">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Proveedor</th>
+              <th>Descripción</th>
+              <th>Items</th>
+              <th>Total</th>
+              <th>Entrega</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-compras">
+            <tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal nueva compra -->
+<div class="modal-overlay" id="modal-compra">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <span class="modal-title">Nueva orden de compra</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modal-compra')">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:1rem">
+      <div class="grid-2">
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Proveedor *</label>
+          <input class="form-input" id="c-proveedor" placeholder="Nombre del proveedor o empresa" />
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Descripción general</label>
+          <input class="form-input" id="c-desc" placeholder="Ej. Refacciones motor, materiales limpieza..." />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fecha de entrega esperada</label>
+          <input class="form-input" id="c-entrega" type="date" />
+        </div>
+      </div>
+      <div>
+        <div class="flex-between" style="margin-bottom:8px">
+          <span style="font-size:13px;font-weight:500;color:var(--color-text-muted)">Productos a comprar</span>
+          <button class="btn btn-secondary btn-sm" id="btn-add-item-compra">+ Agregar</button>
+        </div>
+        <div id="items-compra"></div>
+      </div>
+      <div style="text-align:right;font-size:15px;font-weight:600;border-top:1px solid var(--color-border);padding-top:10px">
+        Total estimado: <span id="c-total">$0.00</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-compra')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-compra">Crear orden</button>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/api.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script>
+  requireAuth();
+  initSidebar('compras');
+
+  let filtroEstado = '';
+  let productos    = [];
+
+  async function loadCompras() {
+    try {
+      const lista = await api.compras.list({ estado: filtroEstado });
+      const tbody = document.getElementById('tabla-compras');
+      if (!lista.length) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Sin órdenes de compra</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = lista.map(c => {
+        const acciones = c.estado === 'pendiente' ? `
+          <button class="btn btn-secondary btn-sm" onclick="cambiarEstado('${c.id}','recibida')">✓ Recibida</button>
+          <button class="btn btn-ghost btn-sm"     onclick="cambiarEstado('${c.id}','cancelada')">Cancelar</button>` : '';
+        return `<tr>
+          <td style="font-size:13px;font-weight:500">${c.proveedor}</td>
+          <td style="font-size:13px;color:var(--color-text-muted)">${c.descripcion || '—'}</td>
+          <td style="font-size:13px">${Array.isArray(c.items) ? c.items.length : 0} items</td>
+          <td style="font-weight:500">${formatMoney(c.total)}</td>
+          <td style="font-size:12px;color:var(--color-text-muted)">${c.fecha_entrega ? formatDate(c.fecha_entrega) : '—'}</td>
+          <td>${estadoBadge(c.estado)}</td>
+          <td><div class="flex gap-8">${acciones}</div></td>
+        </tr>`;
+      }).join('');
+    } catch(err) { showToast(err.message, 'error'); }
+  }
+
+  document.querySelectorAll('.filtro-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      filtroEstado = btn.dataset.estado;
+      loadCompras();
+    });
+  });
+
+  document.getElementById('btn-nueva').addEventListener('click', async () => {
+    productos = await api.productos.list();
+    document.getElementById('items-compra').innerHTML = '';
+    document.getElementById('c-proveedor').value = '';
+    document.getElementById('c-desc').value      = '';
+    document.getElementById('c-entrega').value   = '';
+    document.getElementById('c-total').textContent = '$0.00';
+    agregarItemCompra();
+    openModal('modal-compra');
+  });
+
+  document.getElementById('btn-add-item-compra').addEventListener('click', agregarItemCompra);
+
+  function agregarItemCompra() {
+    const wrap = document.getElementById('items-compra');
+    const div  = document.createElement('div');
+    div.style.cssText = 'display:grid;grid-template-columns:1fr 90px 110px auto;gap:8px;margin-bottom:8px;align-items:end';
+    const opts = `<option value="">— Sin vincular a inventario —</option>` +
+      productos.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+    div.innerHTML = `
+      <div class="form-group" style="margin:0">
+        <select class="form-select item-prod" style="font-size:13px">${opts}</select>
+      </div>
+      <div class="form-group" style="margin:0">
+        <input class="form-input item-qty" type="number" value="1" min="1" style="font-size:13px" placeholder="Cant." />
+      </div>
+      <div class="form-group" style="margin:0">
+        <input class="form-input item-price" type="number" min="0" style="font-size:13px" placeholder="Precio unit." />
+      </div>
+      <button class="btn btn-ghost btn-icon" onclick="this.parentElement.remove();calcTotalCompra()">✕</button>
+    `;
+    div.querySelectorAll('input,select').forEach(i => i.addEventListener('input', calcTotalCompra));
+    wrap.appendChild(div);
+  }
+
+  function calcTotalCompra() {
+    let total = 0;
+    document.querySelectorAll('#items-compra > div').forEach(div => {
+      const q = parseFloat(div.querySelector('.item-qty')?.value)   || 0;
+      const p = parseFloat(div.querySelector('.item-price')?.value) || 0;
+      total += q * p;
+    });
+    document.getElementById('c-total').textContent = formatMoney(total);
+  }
+
+  document.getElementById('btn-guardar-compra').addEventListener('click', async () => {
+    const items = [];
+    document.querySelectorAll('#items-compra > div').forEach(div => {
+      const prod  = div.querySelector('.item-prod')?.value;
+      const qty   = parseFloat(div.querySelector('.item-qty')?.value)   || 0;
+      const price = parseFloat(div.querySelector('.item-price')?.value) || 0;
+      const nombre= prod ? (productos.find(p=>p.id===prod)?.nombre || 'Producto') : 'Artículo';
+      if (qty) items.push({ producto_id: prod||null, descripcion: nombre, cantidad: qty, precio_unit: price });
+    });
+    const proveedor = document.getElementById('c-proveedor').value.trim();
+    if (!proveedor) return showToast('El proveedor es requerido', 'error');
+    if (!items.length) return showToast('Agrega al menos un producto', 'error');
+    try {
+      await api.compras.create({
+        proveedor,
+        descripcion:   document.getElementById('c-desc').value,
+        items,
+        fecha_entrega: document.getElementById('c-entrega').value || null,
+      });
+      showToast('Orden de compra creada');
+      closeModal('modal-compra');
+      loadCompras();
+    } catch(err) { showToast(err.message, 'error'); }
+  });
+
+  async function cambiarEstado(id, estado) {
+    const msgs = { recibida: '¿Marcar como recibida? Esto actualizará el stock de los productos.', cancelada: '¿Cancelar esta orden?' };
+    if (!confirm(msgs[estado])) return;
+    try {
+      await api.compras.updateEstado(id, estado);
+      showToast(estado === 'recibida' ? '✅ Compra recibida y stock actualizado' : 'Orden cancelada');
+      loadCompras();
+    } catch(err) { showToast(err.message, 'error'); }
+  }
+
+  loadCompras();
+</script>
+</body>
+</html>

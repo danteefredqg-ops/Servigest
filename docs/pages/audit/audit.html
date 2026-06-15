@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ServiGest — Auditoría</title>
+  <link rel="stylesheet" href="../../css/base.css" />
+  <link rel="stylesheet" href="../../css/components.css" />
+  <style>
+    .accion-badge {
+      display:inline-block; padding:2px 9px; border-radius:20px;
+      font-size:10px; font-weight:600; white-space:nowrap;
+    }
+    .ac-crear    { background:#EAF3DE; color:#3B6D11; }
+    .ac-editar   { background:#E6F1FB; color:#185FA5; }
+    .ac-eliminar { background:#FCEBEB; color:#A32D2D; }
+    .ac-timbrar  { background:#EEEDFE; color:#534AB7; }
+    .ac-cancelar { background:#FCEBEB; color:#A32D2D; }
+    .ac-login    { background:#F1EFE8; color:#5F5E5A; }
+    .ac-default  { background:#F1EFE8; color:#5F5E5A; }
+
+    .resumen-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:1.5rem; }
+    .usuario-row  { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--color-border); }
+    .usuario-row:last-child { border-bottom:none; }
+    .actividad-bar { flex:1; height:6px; background:var(--color-bg-tertiary); border-radius:3px; overflow:hidden; }
+    .actividad-fill { height:100%; background:var(--color-accent); border-radius:3px; }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="logo"><div class="logo-dot"></div>ServiGest</div>
+    <nav id="sidebar-nav"></nav>
+    <div class="sidebar-user">
+      <div class="user-avatar">--</div>
+      <div><div class="user-name">Cargando...</div><div class="user-empresa"></div></div>
+    </div>
+    <button id="btn-logout" class="btn btn-ghost btn-sm" style="margin-top:8px">Cerrar sesión</button>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Auditoría</h1>
+        <p class="page-subtitle">Registro de todas las acciones del sistema</p>
+      </div>
+    </div>
+
+    <!-- Resumen de actividad 30 días -->
+    <div class="resumen-grid" id="resumen-acciones"></div>
+
+    <!-- Actividad por usuario -->
+    <div class="card" style="margin-bottom:1.5rem">
+      <div style="font-size:14px;font-weight:500;margin-bottom:1rem">Actividad por usuario — últimos 30 días</div>
+      <div id="actividad-usuarios">
+        <div style="text-align:center;padding:1rem;color:var(--color-text-muted);font-size:13px">Cargando...</div>
+      </div>
+    </div>
+
+    <!-- Filtros del log -->
+    <div class="flex gap-8" style="margin-bottom:1rem;flex-wrap:wrap;align-items:flex-end">
+      <div class="search-wrapper">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="search-input" id="filtro-accion" placeholder="Filtrar por acción..." />
+      </div>
+      <div class="form-group" style="margin:0">
+        <select class="form-select" id="filtro-entidad" style="min-height:36px;font-size:13px">
+          <option value="">Todas las entidades</option>
+          <option value="pedido">Pedidos</option>
+          <option value="factura">Facturas</option>
+          <option value="cliente">Clientes</option>
+          <option value="producto">Productos</option>
+          <option value="usuario">Usuarios</option>
+          <option value="compra">Compras</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0">
+        <input class="form-input" type="date" id="filtro-desde" style="min-height:36px;font-size:13px" />
+      </div>
+      <div class="form-group" style="margin:0">
+        <input class="form-input" type="date" id="filtro-hasta" style="min-height:36px;font-size:13px" />
+      </div>
+      <button class="btn btn-primary btn-sm" id="btn-filtrar">Filtrar</button>
+      <button class="btn btn-secondary btn-sm" id="btn-limpiar">Limpiar</button>
+    </div>
+
+    <!-- Tabla de logs -->
+    <div class="card" style="padding:0">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha y hora</th>
+              <th>Usuario</th>
+              <th>Acción</th>
+              <th>Entidad</th>
+              <th>Detalle</th>
+              <th>IP</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-logs">
+            <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <span class="pagination-info" id="log-count">—</span>
+        <div class="pagination-btns" id="pag-btns"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/api.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script>
+  requireAuth();
+  initSidebar('audit');
+
+  // Solo admin puede ver auditoría
+  if (!Permisos.puede('gestionarUsuarios')) {
+    showToast('Solo administradores pueden ver la auditoría', 'error');
+    setTimeout(() => window.location.href = '../dashboard/dashboard.html', 1500);
+  }
+
+  const ACCIONES_COLOR = {
+    crear_pedido:'ac-crear',    editar_pedido:'ac-editar',    eliminar_pedido:'ac-eliminar',
+    crear_cliente:'ac-crear',   editar_cliente:'ac-editar',   eliminar_cliente:'ac-eliminar',
+    crear_factura:'ac-crear',   timbrar_factura:'ac-timbrar', cancelar_factura:'ac-cancelar',
+    crear_usuario:'ac-crear',   eliminar_usuario:'ac-eliminar',
+    crear_producto:'ac-crear',  editar_producto:'ac-editar',
+    login:'ac-login',
+  };
+
+  const ACCIONES_LABEL = {
+    crear_pedido:'Nuevo pedido',     editar_pedido:'Editó pedido',       eliminar_pedido:'Eliminó pedido',
+    crear_cliente:'Nuevo cliente',   editar_cliente:'Editó cliente',     eliminar_cliente:'Eliminó cliente',
+    crear_factura:'Creó factura',    timbrar_factura:'Timbró CFDI',      cancelar_factura:'Canceló CFDI',
+    crear_usuario:'Creó usuario',    eliminar_usuario:'Eliminó usuario',
+    crear_producto:'Nuevo producto', editar_producto:'Editó producto',
+    login:'Inicio de sesión',
+  };
+
+  // ── Resumen de acciones ───────────────────────────────────────────────────
+  async function loadResumen() {
+    try {
+      const [resumen, porUsuario] = await Promise.all([
+        api.audit.resumen(),
+        api.audit.porUsuario(),
+      ]);
+
+      // Top 3 acciones más frecuentes como KPIs
+      const resGrid = document.getElementById('resumen-acciones');
+      resGrid.innerHTML = resumen.slice(0,3).map(r => `
+        <div class="metric-card">
+          <div class="metric-label">${ACCIONES_LABEL[r.accion] || r.accion}</div>
+          <div class="metric-value">${r.total}</div>
+          <div class="metric-sub">Última: ${formatDate(r.ultima_vez)}</div>
+        </div>
+      `).join('') || '<div style="color:var(--color-text-muted);font-size:13px;grid-column:1/-1">Sin actividad en los últimos 30 días</div>';
+
+      // Actividad por usuario
+      const maxAcciones = Math.max(...porUsuario.map(u => Number(u.acciones)), 1);
+      const actEl = document.getElementById('actividad-usuarios');
+      if (!porUsuario.length) {
+        actEl.innerHTML = '<div style="color:var(--color-text-muted);font-size:13px;text-align:center;padding:1rem">Sin actividad registrada</div>';
+      } else {
+        actEl.innerHTML = porUsuario.map(u => {
+          const pct = Math.round((Number(u.acciones) / maxAcciones) * 100);
+          const ini = (u.usuario_nombre || u.email || '?').split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase();
+          return `
+            <div class="usuario-row">
+              <div class="user-avatar" style="width:32px;height:32px;font-size:11px;flex-shrink:0">${ini}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:500">${u.usuario_nombre || '—'}</div>
+                <div style="font-size:11px;color:var(--color-text-muted)">${u.email || ''}</div>
+                <div class="actividad-bar" style="margin-top:5px">
+                  <div class="actividad-fill" style="width:${pct}%"></div>
+                </div>
+              </div>
+              <div style="text-align:right;flex-shrink:0;margin-left:12px">
+                <div style="font-size:14px;font-weight:600">${u.acciones}</div>
+                <div style="font-size:10px;color:var(--color-text-hint)">acciones</div>
+              </div>
+              <div style="font-size:11px;color:var(--color-text-muted);flex-shrink:0;margin-left:8px;text-align:right">
+                Última actividad<br>${timeAgo(u.ultima_actividad)}
+              </div>
+            </div>`;
+        }).join('');
+      }
+    } catch(err) { showToast(err.message, 'error'); }
+  }
+
+  // ── Tabla de logs ─────────────────────────────────────────────────────────
+  let pagina = 0;
+  const POR_PAGINA = 50;
+  let logsTotal = [];
+
+  async function loadLogs() {
+    try {
+      const filtros = {
+        accion:  document.getElementById('filtro-accion').value.trim() || undefined,
+        entidad: document.getElementById('filtro-entidad').value       || undefined,
+        desde:   document.getElementById('filtro-desde').value         || undefined,
+        hasta:   document.getElementById('filtro-hasta').value         || undefined,
+        limit:   500,
+      };
+      logsTotal = await api.audit.list(filtros);
+      pagina = 0;
+      renderLogs();
+    } catch(err) { showToast(err.message, 'error'); }
+  }
+
+  function renderLogs() {
+    const inicio = pagina * POR_PAGINA;
+    const slice  = logsTotal.slice(inicio, inicio + POR_PAGINA);
+    const tbody  = document.getElementById('tabla-logs');
+
+    document.getElementById('log-count').textContent =
+      `Mostrando ${inicio+1}–${Math.min(inicio+slice.length, logsTotal.length)} de ${logsTotal.length} registros`;
+
+    if (!slice.length) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Sin registros con esos filtros</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = slice.map(l => {
+      const colorClass = ACCIONES_COLOR[l.accion] || 'ac-default';
+      const label      = ACCIONES_LABEL[l.accion] || l.accion;
+      const detalle    = formatDetalle(l.accion, l.detalle);
+
+      return `<tr>
+        <td style="font-size:12px;white-space:nowrap;color:var(--color-text-muted)">
+          ${new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(l.created_at))}
+        </td>
+        <td>
+          <div style="font-size:13px;font-weight:500">${l.usuario_nombre || '—'}</div>
+          <div style="font-size:10px;color:var(--color-text-hint)">${l.usuario_email || ''}</div>
+        </td>
+        <td><span class="accion-badge ${colorClass}">${label}</span></td>
+        <td style="font-size:12px;color:var(--color-text-muted)">${l.entidad}</td>
+        <td style="font-size:12px;color:var(--color-text-muted);max-width:200px;overflow:hidden;text-overflow:ellipsis">${detalle}</td>
+        <td style="font-size:11px;font-family:monospace;color:var(--color-text-hint)">${l.ip || '—'}</td>
+      </tr>`;
+    }).join('');
+
+    // Paginación
+    const totalPags = Math.ceil(logsTotal.length / POR_PAGINA);
+    const pagEl = document.getElementById('pag-btns');
+    if (totalPags <= 1) { pagEl.innerHTML = ''; return; }
+    pagEl.innerHTML = Array.from({length: Math.min(totalPags, 8)}, (_,i) =>
+      `<button class="page-btn ${i===pagina?'current':''}" onclick="irPagina(${i})">${i+1}</button>`
+    ).join('');
+  }
+
+  function irPagina(n) { pagina = n; renderLogs(); window.scrollTo(0,0); }
+
+  function formatDetalle(accion, detalle) {
+    if (!detalle) return '—';
+    const d = typeof detalle === 'string' ? JSON.parse(detalle) : detalle;
+    if (accion === 'login') return `${d.email || ''}`;
+    if (accion.includes('pedido') && d.monto) return `Monto: ${formatMoney(d.monto)}`;
+    if (accion === 'timbrar_factura') return `UUID: ${(d.uuid||'').slice(0,8)}...`;
+    if (accion === 'cancelar_factura') return `Motivo: ${d.motivo || '—'}`;
+    if (accion.includes('usuario')) return `Rol: ${d.rol || '—'}`;
+    return Object.entries(d)
+      .filter(([k,v]) => k !== 'body' && v && v !== '***')
+      .map(([k,v]) => `${k}: ${v}`)
+      .slice(0,2)
+      .join(', ') || '—';
+  }
+
+  function timeAgo(iso) {
+    if (!iso) return '—';
+    const diff = Math.floor((Date.now() - new Date(iso)) / 60000);
+    if (diff < 1)    return 'Hace un momento';
+    if (diff < 60)   return `Hace ${diff} min`;
+    if (diff < 1440) return `Hace ${Math.floor(diff/60)} h`;
+    return `Hace ${Math.floor(diff/1440)} días`;
+  }
+
+  // ── Eventos ───────────────────────────────────────────────────────────────
+  document.getElementById('btn-filtrar').addEventListener('click', loadLogs);
+
+  document.getElementById('btn-limpiar').addEventListener('click', () => {
+    ['filtro-accion','filtro-entidad','filtro-desde','filtro-hasta']
+      .forEach(id => { const el = document.getElementById(id); el.value = ''; });
+    loadLogs();
+  });
+
+  // Filtro por acción en tiempo real
+  let debounce;
+  document.getElementById('filtro-accion').addEventListener('input', () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(loadLogs, 400);
+  });
+
+  // ── Inicializar ───────────────────────────────────────────────────────────
+  // Fechas por defecto: últimos 7 días
+  (function() {
+    const hasta = new Date();
+    const desde = new Date(); desde.setDate(desde.getDate() - 7);
+    document.getElementById('filtro-desde').value = desde.toISOString().slice(0,10);
+    document.getElementById('filtro-hasta').value = hasta.toISOString().slice(0,10);
+  })();
+
+  loadResumen();
+  loadLogs();
+</script>
+</body>
+</html>

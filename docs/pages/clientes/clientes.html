@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ServiGest — Clientes</title>
+  <link rel="stylesheet" href="../../css/base.css" />
+  <link rel="stylesheet" href="../../css/components.css" />
+</head>
+<body>
+
+<div class="layout">
+    <aside class="sidebar">
+    <div class="logo"><div class="logo-dot"></div>ServiGest</div>
+    <nav id="sidebar-nav"></nav>
+    <div class="sidebar-user">
+      <div class="user-avatar">--</div>
+      <div><div class="user-name">Cargando...</div><div class="user-empresa"></div></div>
+    </div>
+    <button id="btn-logout" class="btn btn-ghost btn-sm" style="margin-top:8px">Cerrar sesión</button>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Clientes</h1>
+        <p class="page-subtitle">Directorio de clientes de tu empresa</p>
+      </div>
+      <button class="btn btn-primary" id="btn-nuevo">+ Nuevo cliente</button>
+    </div>
+
+    <div class="card" style="padding:0">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Teléfono</th>
+              <th>Correo</th>
+              <th>Pedidos</th>
+              <th>Total facturado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tabla-clientes">
+            <tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);padding:2rem">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal cliente -->
+<div class="modal-overlay" id="modal-cliente">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-titulo">Nuevo cliente</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modal-cliente')">✕</button>
+    </div>
+    <input type="hidden" id="cliente-id" />
+    <div style="display:flex;flex-direction:column;gap:1rem">
+      <div class="form-group">
+        <label class="form-label">Nombre *</label>
+        <input class="form-input" type="text" id="c-nombre" placeholder="Roberto López" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Teléfono</label>
+        <input class="form-input" type="tel" id="c-telefono" placeholder="81 1234 5678" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Correo electrónico</label>
+        <input class="form-input" type="email" id="c-email" placeholder="cliente@correo.com" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Dirección</label>
+        <textarea class="form-textarea" id="c-direccion" placeholder="Calle, colonia, ciudad"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-cliente')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-cliente">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/api.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script>
+  requireAuth();
+  initSidebar('clientes');
+
+  async function loadClientes() {
+    const tbody = document.getElementById('tabla-clientes');
+    try {
+      const clientes = await api.clientes.list();
+      if (clientes.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);padding:2rem">Sin clientes aún</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = clientes.map(c => {
+        const initials = c.nombre.split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase();
+        return `
+          <tr>
+            <td>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div class="user-avatar" style="width:32px;height:32px;font-size:12px">${initials}</div>
+                <span style="font-size:13px;font-weight:500">${c.nombre}</span>
+              </div>
+            </td>
+            <td style="font-size:13px">${c.telefono || '—'}</td>
+            <td style="font-size:13px;color:var(--color-text-muted)">${c.email || '—'}</td>
+            <td style="font-size:13px">${c.total_pedidos}</td>
+            <td style="font-size:13px;font-weight:500">${formatMoney(c.total_facturado)}</td>
+            <td>
+              <div class="flex gap-8">
+                <button class="btn btn-ghost btn-sm" onclick="editarCliente('${c.id}')">Editar</button>
+                <button class="btn btn-ghost btn-sm" onclick="eliminarCliente('${c.id}')">Borrar</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  document.getElementById('btn-nuevo').addEventListener('click', () => {
+    document.getElementById('modal-titulo').textContent = 'Nuevo cliente';
+    document.getElementById('cliente-id').value = '';
+    ['c-nombre','c-telefono','c-email','c-direccion'].forEach(id => document.getElementById(id).value = '');
+    openModal('modal-cliente');
+  });
+
+  async function editarCliente(id) {
+    try {
+      const c = await api.clientes.get(id);
+      document.getElementById('modal-titulo').textContent = 'Editar cliente';
+      document.getElementById('cliente-id').value = c.id;
+      document.getElementById('c-nombre').value = c.nombre;
+      document.getElementById('c-telefono').value = c.telefono || '';
+      document.getElementById('c-email').value = c.email || '';
+      document.getElementById('c-direccion').value = c.direccion || '';
+      openModal('modal-cliente');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  document.getElementById('btn-guardar-cliente').addEventListener('click', async () => {
+    const id = document.getElementById('cliente-id').value;
+    const body = {
+      nombre:    document.getElementById('c-nombre').value,
+      telefono:  document.getElementById('c-telefono').value,
+      email:     document.getElementById('c-email').value,
+      direccion: document.getElementById('c-direccion').value,
+    };
+    try {
+      if (id) {
+        await api.clientes.update(id, body);
+        showToast('Cliente actualizado');
+      } else {
+        await api.clientes.create(body);
+        showToast('Cliente creado');
+      }
+      closeModal('modal-cliente');
+      loadClientes();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  });
+
+  async function eliminarCliente(id) {
+    if (!confirm('¿Eliminar este cliente?')) return;
+    try {
+      await api.clientes.delete(id);
+      showToast('Cliente eliminado');
+      loadClientes();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  loadClientes();
+</script>
+</body>
+</html>

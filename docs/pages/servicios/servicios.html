@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ServiGest — Catálogo de Servicios</title>
+  <link rel="stylesheet" href="../../css/base.css" />
+  <link rel="stylesheet" href="../../css/components.css" />
+</head>
+<body>
+
+<div class="layout">
+    <aside class="sidebar">
+    <div class="logo"><div class="logo-dot"></div>ServiGest</div>
+    <nav id="sidebar-nav"></nav>
+    <div class="sidebar-user">
+      <div class="user-avatar">--</div>
+      <div><div class="user-name">Cargando...</div><div class="user-empresa"></div></div>
+    </div>
+    <button id="btn-logout" class="btn btn-ghost btn-sm" style="margin-top:8px">Cerrar sesión</button>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Catálogo de servicios</h1>
+        <p class="page-subtitle">Los servicios que ofrece tu empresa</p>
+      </div>
+      <button class="btn btn-primary" id="btn-nuevo">+ Nuevo servicio</button>
+    </div>
+
+    <div class="card" style="padding:0">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Nombre del servicio</th><th>Categoría</th><th>Precio base</th><th></th></tr>
+          </thead>
+          <tbody id="tabla-servicios">
+            <tr><td colspan="4" style="text-align:center;color:var(--color-text-muted);padding:2rem">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal servicio -->
+<div class="modal-overlay" id="modal-servicio">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-titulo">Nuevo servicio</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modal-servicio')">✕</button>
+    </div>
+    <input type="hidden" id="servicio-id" />
+    <div style="display:flex;flex-direction:column;gap:1rem">
+      <div class="form-group">
+        <label class="form-label">Nombre del servicio *</label>
+        <input class="form-input" type="text" id="s-nombre" placeholder="Ej. Reparación de tubería" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Categoría</label>
+        <input class="form-input" type="text" id="s-categoria" placeholder="Ej. Plomería, Electricidad..." />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Precio base ($)</label>
+        <input class="form-input" type="number" id="s-precio" placeholder="0.00" min="0" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-servicio')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/api.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script>
+  requireAuth();
+  initSidebar('servicios');
+
+  async function loadServicios() {
+    const tbody = document.getElementById('tabla-servicios');
+    try {
+      const servicios = await api.servicios.list();
+      if (servicios.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--color-text-muted);padding:2rem">Sin servicios en el catálogo aún</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = servicios.map(s => `
+        <tr>
+          <td style="font-size:13px;font-weight:500">${s.nombre}</td>
+          <td><span class="tag">${s.categoria || '—'}</span></td>
+          <td style="font-weight:500">${formatMoney(s.precio_base)}</td>
+          <td>
+            <div class="flex gap-8">
+              <button class="btn btn-ghost btn-sm" onclick="editarServicio('${s.id}', '${s.nombre}', '${s.categoria || ''}', ${s.precio_base})">Editar</button>
+              <button class="btn btn-ghost btn-sm" onclick="eliminarServicio('${s.id}')">Borrar</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  document.getElementById('btn-nuevo').addEventListener('click', () => {
+    document.getElementById('modal-titulo').textContent = 'Nuevo servicio';
+    document.getElementById('servicio-id').value = '';
+    document.getElementById('s-nombre').value = '';
+    document.getElementById('s-categoria').value = '';
+    document.getElementById('s-precio').value = '';
+    openModal('modal-servicio');
+  });
+
+  function editarServicio(id, nombre, categoria, precio) {
+    document.getElementById('modal-titulo').textContent = 'Editar servicio';
+    document.getElementById('servicio-id').value = id;
+    document.getElementById('s-nombre').value = nombre;
+    document.getElementById('s-categoria').value = categoria;
+    document.getElementById('s-precio').value = precio;
+    openModal('modal-servicio');
+  }
+
+  document.getElementById('btn-guardar').addEventListener('click', async () => {
+    const id = document.getElementById('servicio-id').value;
+    const body = {
+      nombre:     document.getElementById('s-nombre').value,
+      categoria:  document.getElementById('s-categoria').value,
+      precio_base: parseFloat(document.getElementById('s-precio').value) || 0,
+    };
+    try {
+      if (id) {
+        await api.servicios.update(id, body);
+        showToast('Servicio actualizado');
+      } else {
+        await api.servicios.create(body);
+        showToast('Servicio creado');
+      }
+      closeModal('modal-servicio');
+      loadServicios();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  });
+
+  async function eliminarServicio(id) {
+    if (!confirm('¿Eliminar este servicio del catálogo?')) return;
+    try {
+      await api.servicios.delete(id);
+      showToast('Servicio eliminado');
+      loadServicios();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  loadServicios();
+</script>
+</body>
+</html>

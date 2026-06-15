@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ServiGest — Inventario</title>
+  <link rel="stylesheet" href="../../css/base.css" />
+  <link rel="stylesheet" href="../../css/components.css" />
+  <style>
+    .stock-badge { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; }
+    .stock-ok     { background:#EAF3DE; color:#3B6D11; }
+    .stock-bajo   { background:#FAEEDA; color:#854F0B; }
+    .stock-agotado{ background:#FCEBEB; color:#A32D2D; }
+    .import-zone  { border:2px dashed var(--color-border-md); border-radius:var(--radius-lg); padding:2rem; text-align:center; cursor:pointer; transition:border-color .15s; }
+    .import-zone:hover { border-color:var(--color-accent); }
+    .import-zone p { font-size:13px; color:var(--color-text-muted); margin-top:6px; }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="logo"><div class="logo-dot"></div>ServiGest</div>
+    <nav id="sidebar-nav"></nav>
+    <div class="sidebar-user">
+      <div class="user-avatar">--</div>
+      <div><div class="user-name">Cargando...</div><div class="user-empresa"></div></div>
+    </div>
+    <button id="btn-logout" class="btn btn-ghost btn-sm" style="margin-top:8px">Cerrar sesión</button>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Inventario</h1>
+        <p class="page-subtitle">Productos, refacciones y materiales</p>
+      </div>
+      <div class="flex gap-8">
+        <button class="btn btn-secondary" id="btn-importar" data-permiso="editarPrecios">↑ Importar Excel</button>
+        <button class="btn btn-secondary" id="btn-plantilla" data-permiso="editarPrecios">↓ Plantilla</button>
+        <button class="btn btn-primary"   id="btn-nuevo" data-permiso="editarPrecios">+ Nuevo producto</button>
+      </div>
+    </div>
+
+    <!-- Alertas stock bajo -->
+    <div id="alerta-stock"></div>
+
+    <!-- Filtros -->
+    <div class="flex gap-8" style="margin-bottom:1rem;flex-wrap:wrap">
+      <div class="search-wrapper">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="search-input" id="buscador" placeholder="Buscar por nombre o SKU..." />
+      </div>
+      <button class="btn btn-secondary btn-sm filtro-btn active" data-filtro="todos">Todos</button>
+      <button class="btn btn-secondary btn-sm filtro-btn" data-filtro="bajo">Stock bajo</button>
+      <button class="btn btn-secondary btn-sm filtro-btn" data-filtro="agotado">Agotados</button>
+    </div>
+
+    <div class="card" style="padding:0">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Producto / SKU</th>
+              <th>Unidad</th>
+              <th>Precio</th>
+              <th>Costo</th>
+              <th>Stock</th>
+              <th>Estado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tabla-productos">
+            <tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal producto -->
+<div class="modal-overlay" id="modal-producto">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-titulo">Nuevo producto</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modal-producto')">✕</button>
+    </div>
+    <input type="hidden" id="prod-id" />
+    <div style="display:flex;flex-direction:column;gap:1rem">
+      <div class="grid-2">
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Nombre *</label>
+          <input class="form-input" id="p-nombre" placeholder="Ej. Filtro de aceite Wix 51348" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">SKU / Código</label>
+          <input class="form-input" id="p-sku" placeholder="WIX-51348" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Unidad</label>
+          <select class="form-select" id="p-unidad">
+            <option value="pieza">Pieza</option>
+            <option value="caja">Caja</option>
+            <option value="litro">Litro</option>
+            <option value="metro">Metro</option>
+            <option value="servicio">Servicio</option>
+            <option value="hora">Hora</option>
+            <option value="kg">Kilogramo</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Precio de venta ($)</label>
+          <input class="form-input" id="p-precio" type="number" min="0" step="0.01" placeholder="0.00" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Costo ($)</label>
+          <input class="form-input" id="p-costo" type="number" min="0" step="0.01" placeholder="0.00" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Stock actual</label>
+          <input class="form-input" id="p-stock" type="number" min="0" placeholder="0" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Stock mínimo (alerta)</label>
+          <input class="form-input" id="p-stock-min" type="number" min="0" placeholder="0" />
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Clave SAT</label>
+          <input class="form-input" id="p-clave-sat" placeholder="84111500" />
+          <span style="font-size:11px;color:var(--color-text-hint);margin-top:4px">Consulta el catálogo SAT en sat.gob.mx</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-producto')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal importar Excel -->
+<div class="modal-overlay" id="modal-importar">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <span class="modal-title">Importar desde Excel</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modal-importar')">✕</button>
+    </div>
+    <div class="import-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <div style="font-size:32px">📄</div>
+      <div style="font-size:14px;font-weight:500;margin-top:8px">Clic para seleccionar archivo</div>
+      <p>o arrastra tu archivo .xlsx aquí</p>
+      <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none" />
+    </div>
+    <div id="import-resultado" style="margin-top:1rem;display:none"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-importar')">Cerrar</button>
+      <button class="btn btn-primary" id="btn-hacer-import" disabled>Importar</button>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/api.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script>
+  requireAuth();
+  initSidebar('productos');
+
+  let todosProductos = [];
+  let filtroActivo   = 'todos';
+  let archivoSeleccionado = null;
+
+  // ── Carga ─────────────────────────────────────────────────────────────────
+  async function loadProductos() {
+    try {
+      todosProductos = await api.productos.list();
+      renderTabla(todosProductos);
+
+      const bajos = todosProductos.filter(p => p.stock <= p.stock_minimo && p.stock_minimo > 0);
+      const alertaEl = document.getElementById('alerta-stock');
+      if (bajos.length) {
+        alertaEl.innerHTML = `
+          <div class="alert alert-warning" style="margin-bottom:1rem">
+            ⚠️ <strong>${bajos.length} producto(s)</strong> están por debajo del stock mínimo.
+            Revisa tu inventario para evitar quedarte sin existencias.
+          </div>`;
+      }
+    } catch(err) { showToast(err.message, 'error'); }
+  }
+
+  function renderTabla(lista) {
+    const tbody = document.getElementById('tabla-productos');
+    if (!lista.length) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Sin productos aún. Agrega el primero o importa desde Excel.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = lista.map(p => {
+      const margen = p.costo > 0 ? Math.round(((p.precio - p.costo) / p.precio) * 100) : null;
+      let stockClass, stockLabel;
+      if (p.stock <= 0)               { stockClass='stock-agotado'; stockLabel='Agotado'; }
+      else if (p.stock <= p.stock_minimo) { stockClass='stock-bajo';   stockLabel='Stock bajo'; }
+      else                             { stockClass='stock-ok';     stockLabel='OK'; }
+
+      return `<tr>
+        <td>
+          <div style="font-size:13px;font-weight:500">${p.nombre}</div>
+          <div style="font-size:11px;color:var(--color-text-muted)">${p.sku || '—'}</div>
+        </td>
+        <td style="font-size:13px">${p.unidad}</td>
+        <td style="font-weight:500">${formatMoney(p.precio)}</td>
+        <td style="font-size:13px;color:var(--color-text-muted)">
+          ${formatMoney(p.costo)}
+          ${margen !== null ? `<span style="font-size:10px;color:var(--color-accent);margin-left:4px">${margen}%</span>` : ''}
+        </td>
+        <td>
+          <span style="font-size:15px;font-weight:600">${p.stock}</span>
+          <span style="font-size:10px;color:var(--color-text-hint);margin-left:4px">/ mín ${p.stock_minimo}</span>
+        </td>
+        <td><span class="stock-badge ${stockClass}">${stockLabel}</span></td>
+        <td>
+          <div class="flex gap-8">
+            <button class="btn btn-ghost btn-sm" onclick="editarProducto('${p.id}')">Editar</button>
+            <button class="btn btn-ghost btn-sm" onclick="eliminarProducto('${p.id}')">Borrar</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ── Filtros ───────────────────────────────────────────────────────────────
+  document.querySelectorAll('.filtro-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      filtroActivo = btn.dataset.filtro;
+      aplicarFiltros();
+    });
+  });
+
+  document.getElementById('buscador').addEventListener('input', aplicarFiltros);
+
+  function aplicarFiltros() {
+    const q = document.getElementById('buscador').value.toLowerCase();
+    let lista = todosProductos.filter(p =>
+      p.nombre.toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q)
+    );
+    if (filtroActivo === 'bajo')    lista = lista.filter(p => p.stock > 0 && p.stock <= p.stock_minimo);
+    if (filtroActivo === 'agotado') lista = lista.filter(p => p.stock <= 0);
+    renderTabla(lista);
+  }
+
+  // ── Modal nuevo / editar ──────────────────────────────────────────────────
+  document.getElementById('btn-nuevo').addEventListener('click', () => {
+    document.getElementById('modal-titulo').textContent = 'Nuevo producto';
+    document.getElementById('prod-id').value = '';
+    ['p-nombre','p-sku','p-precio','p-costo','p-stock','p-stock-min','p-clave-sat']
+      .forEach(id => document.getElementById(id).value = '');
+    document.getElementById('p-unidad').value = 'pieza';
+    openModal('modal-producto');
+  });
+
+  async function editarProducto(id) {
+    try {
+      const p = await api.productos.get(id);
+      document.getElementById('modal-titulo').textContent = 'Editar producto';
+      document.getElementById('prod-id').value      = p.id;
+      document.getElementById('p-nombre').value     = p.nombre;
+      document.getElementById('p-sku').value        = p.sku || '';
+      document.getElementById('p-unidad').value     = p.unidad;
+      document.getElementById('p-precio').value     = p.precio;
+      document.getElementById('p-costo').value      = p.costo || '';
+      document.getElementById('p-stock').value      = p.stock;
+      document.getElementById('p-stock-min').value  = p.stock_minimo;
+      document.getElementById('p-clave-sat').value  = p.clave_sat || '';
+      openModal('modal-producto');
+    } catch(err) { showToast(err.message, 'error'); }
+  }
+
+  document.getElementById('btn-guardar').addEventListener('click', async () => {
+    const id   = document.getElementById('prod-id').value;
+    const body = {
+      nombre:       document.getElementById('p-nombre').value.trim(),
+      sku:          document.getElementById('p-sku').value.trim(),
+      unidad:       document.getElementById('p-unidad').value,
+      precio:       parseFloat(document.getElementById('p-precio').value) || 0,
+      costo:        parseFloat(document.getElementById('p-costo').value)  || 0,
+      stock:        parseInt(document.getElementById('p-stock').value)    || 0,
+      stock_minimo: parseInt(document.getElementById('p-stock-min').value)|| 0,
+      clave_sat:    document.getElementById('p-clave-sat').value.trim() || '84111500',
+    };
+    if (!body.nombre) return showToast('El nombre es requerido', 'error');
+    try {
+      if (id) { await api.productos.update(id, body); showToast('Producto actualizado'); }
+      else    { await api.productos.create(body);     showToast('Producto creado'); }
+      closeModal('modal-producto');
+      loadProductos();
+    } catch(err) { showToast(err.message, 'error'); }
+  });
+
+  async function eliminarProducto(id) {
+    if (!confirm('¿Desactivar este producto?')) return;
+    try {
+      await api.productos.delete(id);
+      showToast('Producto eliminado');
+      loadProductos();
+    } catch(err) { showToast(err.message, 'error'); }
+  }
+
+  // ── Importar Excel ────────────────────────────────────────────────────────
+  document.getElementById('btn-importar').addEventListener('click', () => {
+    document.getElementById('import-resultado').style.display = 'none';
+    document.getElementById('btn-hacer-import').disabled = true;
+    archivoSeleccionado = null;
+    openModal('modal-importar');
+  });
+
+  document.getElementById('btn-plantilla').addEventListener('click', () =>
+    api.import.plantilla('productos')
+  );
+
+  document.getElementById('file-input').addEventListener('change', function() {
+    archivoSeleccionado = this.files[0];
+    if (archivoSeleccionado) {
+      document.getElementById('btn-hacer-import').disabled = false;
+      document.getElementById('drop-zone').querySelector('div').textContent = archivoSeleccionado.name;
+    }
+  });
+
+  document.getElementById('btn-hacer-import').addEventListener('click', async () => {
+    if (!archivoSeleccionado) return;
+    try {
+      const r = await api.import.productos(archivoSeleccionado);
+      const resEl = document.getElementById('import-resultado');
+      resEl.style.display = 'block';
+      resEl.innerHTML = `
+        <div class="alert alert-success">✅ ${r.importados} productos importados exitosamente.</div>
+        ${r.errores?.length ? `<div class="alert alert-error" style="margin-top:8px">⚠️ ${r.errores.length} filas con errores.</div>` : ''}
+      `;
+      loadProductos();
+    } catch(err) { showToast(err.message, 'error'); }
+  });
+
+  loadProductos();
+</script>
+</body>
+</html>

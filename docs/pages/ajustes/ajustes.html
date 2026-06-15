@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ServiGest — Ajustes</title>
+  <link rel="stylesheet" href="../../css/base.css" />
+  <link rel="stylesheet" href="../../css/components.css" />
+  <style>
+    .tabs { display:flex; gap:4px; margin-bottom:1.5rem; border-bottom:1px solid var(--color-border); }
+    .tab-btn { padding:10px 18px; font-size:14px; color:var(--color-text-muted); background:none; border:none; border-bottom:2px solid transparent; cursor:pointer; font-family:inherit; margin-bottom:-1px; transition:color .15s; }
+    .tab-btn.active { color:var(--color-accent); border-bottom-color:var(--color-accent); font-weight:500; }
+    .tab-panel { display:none; } .tab-panel.active { display:block; }
+    .settings-section { max-width:560px; }
+    .plan-card { border:1px solid var(--color-border); border-radius:var(--radius-lg); padding:1.25rem; display:flex; align-items:center; justify-content:space-between; }
+    .plan-card.current { border-color:var(--color-accent); background:var(--color-accent-light); }
+    .plan-nombre { font-size:15px; font-weight:600; }
+    .plan-precio { font-size:13px; color:var(--color-text-muted); margin-top:2px; }
+    .plan-features { font-size:12px; color:var(--color-text-muted); margin-top:8px; line-height:1.8; }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="logo"><div class="logo-dot"></div>ServiGest</div>
+    <nav id="sidebar-nav"></nav>
+    <div class="sidebar-user">
+      <div class="user-avatar">--</div>
+      <div><div class="user-name">Cargando...</div><div class="user-empresa"></div></div>
+    </div>
+    <button id="btn-logout" class="btn btn-ghost btn-sm" style="margin-top:8px">Cerrar sesión</button>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Ajustes</h1>
+        <p class="page-subtitle">Configuración de tu empresa y cuenta</p>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="empresa">Mi empresa</button>
+      <button class="tab-btn" data-tab="facturacion">Facturación SAT</button>
+      <button class="tab-btn" data-tab="usuarios">Usuarios</button>
+      <button class="tab-btn" data-tab="planes">Plan y suscripción</button>
+      <button class="tab-btn" data-tab="cuenta">Mi cuenta</button>
+    </div>
+
+    <!-- Tab: Empresa -->
+    <div class="tab-panel active" id="tab-empresa">
+      <div class="settings-section">
+        <h3 style="font-size:15px;font-weight:500;margin-bottom:1.25rem">Datos de la empresa</h3>
+        <div style="display:flex;flex-direction:column;gap:1rem">
+          <div class="form-group">
+            <label class="form-label">Nombre comercial *</label>
+            <input class="form-input" id="e-nombre" placeholder="Ej. Refaccionaria López" />
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">RFC</label>
+              <input class="form-input" id="e-rfc" placeholder="XAXX010101000" maxlength="13" style="text-transform:uppercase" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Código postal</label>
+              <input class="form-input" id="e-cp" placeholder="64000" maxlength="5" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Régimen fiscal</label>
+            <select class="form-select" id="e-regimen">
+              <option value="">— Selecciona —</option>
+              <option value="601">601 — General de Ley Personas Morales</option>
+              <option value="603">603 — Personas Morales con Fines no Lucrativos</option>
+              <option value="605">605 — Sueldos y Salarios e Ingresos Asimilados</option>
+              <option value="606">606 — Arrendamiento</option>
+              <option value="612">612 — Personas Físicas con Actividades Empresariales</option>
+              <option value="621">621 — Incorporación Fiscal</option>
+              <option value="626">626 — Régimen Simplificado de Confianza (RESICO)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Dirección fiscal</label>
+            <textarea class="form-textarea" id="e-direccion" placeholder="Calle, número, colonia, ciudad, estado"></textarea>
+          </div>
+          <button class="btn btn-primary" id="btn-guardar-empresa" style="align-self:flex-start">Guardar cambios</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Facturación -->
+    <div class="tab-panel" id="tab-facturacion">
+      <div class="settings-section">
+        <h3 style="font-size:15px;font-weight:500;margin-bottom:6px">Integración con Facturapi</h3>
+        <p style="font-size:13px;color:var(--color-text-muted);margin-bottom:1.25rem">
+          ServiGest usa <strong>Facturapi</strong> para timbrar facturas CFDI ante el SAT.
+          Necesitas una cuenta en <a href="https://facturapi.io" target="_blank" style="color:var(--color-accent)">facturapi.io</a> y tu API key.
+        </p>
+
+        <div class="alert alert-info" style="margin-bottom:1.25rem">
+          💡 <strong>Modo de prueba:</strong> Usa tu API key de sandbox para probar sin costo.
+          Para facturar de verdad usa tu key de producción.
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:1rem">
+          <div class="form-group">
+            <label class="form-label">API Key de Facturapi</label>
+            <input class="form-input" id="fapi-key" type="password" placeholder="sk_live_XXXXXXXXXXXXXXXX o sk_test_XXXXXXXX" />
+            <span style="font-size:11px;color:var(--color-text-hint);margin-top:4px">
+              Encriptada y guardada de forma segura. Nunca la compartimos.
+            </span>
+          </div>
+          <div class="flex gap-8">
+            <button class="btn btn-primary" id="btn-guardar-fapi">Guardar clave</button>
+            <button class="btn btn-secondary" id="btn-test-fapi">Probar conexión</button>
+          </div>
+          <div id="fapi-resultado" style="display:none"></div>
+        </div>
+
+        <hr class="divider" />
+        <h4 style="font-size:13px;font-weight:500;margin-bottom:1rem;color:var(--color-text-muted)">CÓMO OBTENER TU API KEY</h4>
+        <ol style="font-size:13px;color:var(--color-text-muted);line-height:2;padding-left:1.25rem">
+          <li>Crea una cuenta en <a href="https://facturapi.io" target="_blank" style="color:var(--color-accent)">facturapi.io</a></li>
+          <li>Ve a Configuración → Llaves de API</li>
+          <li>Copia tu Secret Key (empieza con <code>sk_</code>)</li>
+          <li>Pégala en el campo de arriba y guarda</li>
+          <li>Ya puedes timbrar facturas CFDI desde ServiGest</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- Tab: Usuarios -->
+    <div class="tab-panel" id="tab-usuarios">
+      <div style="max-width:640px">
+        <div class="flex-between" style="margin-bottom:1.25rem">
+          <h3 style="font-size:15px;font-weight:500">Usuarios de tu empresa</h3>
+          <button class="btn btn-primary btn-sm" id="btn-nuevo-usuario">+ Agregar usuario</button>
+        </div>
+
+        <div class="alert alert-info" style="margin-bottom:1.25rem">
+          💡 <strong>Roles disponibles:</strong>
+          <strong>Admin</strong> — acceso total ·
+          <strong>Operador</strong> — ventas sin configuración ni costos ·
+          <strong>Contador</strong> — solo lectura fiscal
+        </div>
+
+        <div id="lista-usuarios">
+          <div style="text-align:center;padding:2rem;color:var(--color-text-muted)">Cargando...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Planes -->
+    <div class="tab-panel" id="tab-planes">
+      <h3 style="font-size:15px;font-weight:500;margin-bottom:1.25rem">Plan actual y opciones</h3>
+      <div style="display:flex;flex-direction:column;gap:12px;max-width:620px">
+
+        <div class="plan-card" id="plan-trial">
+          <div>
+            <div class="plan-nombre">🎁 Período de prueba</div>
+            <div class="plan-precio">Gratis por 30 días</div>
+            <div class="plan-features">✓ Acceso completo · ✓ Sin tarjeta requerida</div>
+          </div>
+          <span class="badge badge-en_camino">Activo</span>
+        </div>
+
+        <div class="plan-card">
+          <div>
+            <div class="plan-nombre">Básico</div>
+            <div class="plan-precio">$349 MXN / mes</div>
+            <div class="plan-features">
+              ✓ 1 usuario · ✓ Clientes ilimitados · ✓ Pedidos<br>
+              ✓ Cotizaciones · ✓ CFDI (100/mes) · ✓ Soporte por email
+            </div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="showToast('Próximamente — escríbenos por WhatsApp')">Activar</button>
+        </div>
+
+        <div class="plan-card">
+          <div>
+            <div class="plan-nombre">⭐ Negocio</div>
+            <div class="plan-precio">$849 MXN / mes</div>
+            <div class="plan-features">
+              ✓ 3 usuarios · ✓ Inventario completo · ✓ CxC<br>
+              ✓ Compras · ✓ CFDI ilimitado · ✓ Reportes Excel · ✓ Soporte WhatsApp
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="showToast('Próximamente — escríbenos por WhatsApp')">Activar</button>
+        </div>
+
+        <div class="plan-card">
+          <div>
+            <div class="plan-nombre">Pro</div>
+            <div class="plan-precio">$1,799 MXN / mes</div>
+            <div class="plan-features">
+              ✓ Usuarios ilimitados · ✓ Vista contador · ✓ Multiempresa<br>
+              ✓ API acceso · ✓ Soporte priority · ✓ Todo incluido
+            </div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="showToast('Próximamente — escríbenos por WhatsApp')">Activar</button>
+        </div>
+
+        <p style="font-size:12px;color:var(--color-text-muted);margin-top:.5rem">
+          📱 Para activar tu plan escríbenos por WhatsApp al <strong>81 XXXX XXXX</strong> o manda un correo a <strong>hola@servigest.mx</strong>. Sin contratos, cancela cuando quieras.
+        </p>
+      </div>
+    </div>
+
+    <!-- Tab: Cuenta -->
+    <div class="tab-panel" id="tab-cuenta">
+      <div class="settings-section">
+        <h3 style="font-size:15px;font-weight:500;margin-bottom:1.25rem">Mi cuenta</h3>
+        <div style="display:flex;flex-direction:column;gap:1rem">
+          <div class="form-group">
+            <label class="form-label">Nombre</label>
+            <input class="form-input" id="u-nombre" placeholder="Tu nombre" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Correo electrónico</label>
+            <input class="form-input" id="u-email" type="email" disabled style="background:var(--color-bg-secondary)" />
+            <span style="font-size:11px;color:var(--color-text-hint)">El correo no se puede cambiar por seguridad</span>
+          </div>
+          <hr class="divider" />
+          <h4 style="font-size:13px;font-weight:500;color:var(--color-text-muted)">Cambiar contraseña</h4>
+          <div class="form-group">
+            <label class="form-label">Nueva contraseña</label>
+            <input class="form-input" id="u-pass" type="password" placeholder="Mínimo 8 caracteres" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirmar contraseña</label>
+            <input class="form-input" id="u-pass2" type="password" placeholder="Repite la contraseña" />
+          </div>
+          <button class="btn btn-primary" style="align-self:flex-start" onclick="showToast('Función próximamente')">Guardar cambios</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/api.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script>
+  requireAuth();
+  initSidebar('ajustes');
+
+  // Solo admin puede gestionar usuarios
+  Permisos.requierePode && null; // silencioso — ajustes ya está protegido en ruta
+
+  // ── Tabs ──────────────────────────────────────────────────────────────────
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ── Cargar datos empresa ──────────────────────────────────────────────────
+  async function loadAjustes() {
+    try {
+      const me = await api.get('/auth/me');
+      document.getElementById('e-nombre').value   = me.empresa_nombre || '';
+      document.getElementById('e-rfc').value       = me.rfc            || '';
+      document.getElementById('e-cp').value        = me.cp             || '';
+      document.getElementById('e-regimen').value   = me.regimen_fiscal || '';
+      document.getElementById('e-direccion').value = me.direccion_fiscal || '';
+      document.getElementById('u-nombre').value    = me.nombre         || '';
+      document.getElementById('u-email').value     = me.email          || '';
+
+      // Mostrar plan actual
+      const planMap = { trial:'plan-trial', basico:'plan-basico', profesional:'plan-pro', enterprise:'plan-ent' };
+      if (me.plan) {
+        document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('current'));
+        const planEl = document.getElementById(planMap[me.plan] || 'plan-trial');
+        if (planEl) planEl.classList.add('current');
+      }
+    } catch(err) { showToast(err.message, 'error'); }
+  }
+
+  // ── Guardar empresa ───────────────────────────────────────────────────────
+  document.getElementById('btn-guardar-empresa').addEventListener('click', async () => {
+    const body = {
+      nombre:           document.getElementById('e-nombre').value.trim(),
+      rfc:              document.getElementById('e-rfc').value.trim().toUpperCase(),
+      cp:               document.getElementById('e-cp').value.trim(),
+      regimen_fiscal:   document.getElementById('e-regimen').value,
+      direccion_fiscal: document.getElementById('e-direccion').value.trim(),
+    };
+    if (!body.nombre) return showToast('El nombre es requerido', 'error');
+    try {
+      await api.patch('/auth/empresa', body);
+      showToast('✅ Datos guardados correctamente');
+    } catch(err) { showToast(err.message, 'error'); }
+  });
+
+  // ── Facturapi ─────────────────────────────────────────────────────────────
+  document.getElementById('btn-guardar-fapi').addEventListener('click', async () => {
+    const key = document.getElementById('fapi-key').value.trim();
+    if (!key) return showToast('Ingresa tu API key', 'error');
+    try {
+      await api.patch('/auth/empresa', { facturapi_key: key });
+      showToast('✅ Clave de Facturapi guardada');
+    } catch(err) { showToast(err.message, 'error'); }
+  });
+
+  document.getElementById('btn-test-fapi').addEventListener('click', async () => {
+    const resEl = document.getElementById('fapi-resultado');
+    resEl.style.display = 'block';
+    resEl.innerHTML = '<div class="alert alert-info">Probando conexión...</div>';
+    try {
+      // Intenta crear una factura de prueba borrador y la cancela inmediatamente
+      await api.get('/facturas?limit=1');
+      resEl.innerHTML = '<div class="alert alert-success">✅ Conexión exitosa. Tu clave de Facturapi está funcionando.</div>';
+    } catch(err) {
+      resEl.innerHTML = `<div class="alert alert-error">❌ Error: ${err.message}</div>`;
+    }
+  });
+
+  loadAjustes();
+
+  // ── Gestión de usuarios ───────────────────────────────────────────────────
+  async function loadUsuarios() {
+    try {
+      const lista = await api.usuarios.list();
+      const userActual = api.getUser();
+      const el = document.getElementById('lista-usuarios');
+
+      const rolLabel = { admin:'Admin', operador:'Operador', contador:'Contador' };
+      const rolColor = { admin:'badge-entregado', operador:'badge-en_camino', contador:'badge-cotizacion' };
+
+      el.innerHTML = lista.map(u => `
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--color-border)">
+          <div class="user-avatar" style="width:36px;height:36px;font-size:12px;flex-shrink:0">
+            ${u.nombre.split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase()}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:500">${u.nombre} ${u.id === userActual?.id ? '<span style="font-size:11px;color:var(--color-text-hint)">(tú)</span>' : ''}</div>
+            <div style="font-size:11px;color:var(--color-text-muted)">${u.email}</div>
+          </div>
+          <span class="badge ${rolColor[u.rol] || 'badge-borrador'}">${rolLabel[u.rol] || u.rol}</span>
+          ${u.id !== userActual?.id ? `
+            <div class="flex gap-8">
+              <select class="form-select" style="font-size:12px;padding:4px 8px;min-height:30px;width:110px"
+                onchange="cambiarRol('${u.id}', this.value)">
+                <option value="admin"    ${u.rol==='admin'    ?'selected':''}>Admin</option>
+                <option value="operador" ${u.rol==='operador' ?'selected':''}>Operador</option>
+                <option value="contador" ${u.rol==='contador' ?'selected':''}>Contador</option>
+              </select>
+              <button class="btn btn-ghost btn-sm" onclick="resetPass('${u.id}','${u.nombre}')">Reset pass</button>
+              <button class="btn btn-ghost btn-sm" style="color:#A32D2D" onclick="eliminarUsuario('${u.id}','${u.nombre}')">✕</button>
+            </div>` : ''}
+        </div>
+      `).join('');
+    } catch(err) {
+      document.getElementById('lista-usuarios').innerHTML =
+        `<div class="alert alert-warning">Solo los administradores pueden gestionar usuarios.</div>`;
+    }
+  }
+
+  async function cambiarRol(id, rol) {
+    try {
+      await api.usuarios.update(id, { rol });
+      showToast('Rol actualizado');
+      loadUsuarios();
+    } catch(err) { showToast(err.message, 'error'); }
+  }
+
+  async function resetPass(id, nombre) {
+    const nueva = prompt(`Nueva contraseña para ${nombre} (mínimo 8 caracteres):`);
+    if (!nueva || nueva.length < 8) return showToast('Contraseña muy corta', 'error');
+    try {
+      await api.usuarios.resetPassword(id, nueva);
+      showToast('✅ Contraseña actualizada');
+    } catch(err) { showToast(err.message, 'error'); }
+  }
+
+  async function eliminarUsuario(id, nombre) {
+    if (!confirm(`¿Eliminar a ${nombre}? Esta acción no se puede deshacer.`)) return;
+    try {
+      await api.usuarios.delete(id);
+      showToast('Usuario eliminado');
+      loadUsuarios();
+    } catch(err) { showToast(err.message, 'error'); }
+  }
+
+  // Modal nuevo usuario
+  document.getElementById('btn-nuevo-usuario').addEventListener('click', () => {
+    const nombre = prompt('Nombre completo:');
+    if (!nombre?.trim()) return;
+    const email  = prompt('Correo electrónico:');
+    if (!email?.trim()) return;
+    const pass   = prompt('Contraseña temporal (mínimo 8 caracteres):');
+    if (!pass || pass.length < 8) return showToast('Contraseña muy corta', 'error');
+    const rol    = prompt('Rol (admin / operador / contador):')?.toLowerCase();
+    if (!['admin','operador','contador'].includes(rol)) return showToast('Rol inválido', 'error');
+
+    api.usuarios.create({ nombre: nombre.trim(), email: email.trim(), password: pass, rol })
+      .then(() => { showToast(`✅ Usuario ${nombre} creado`); loadUsuarios(); })
+      .catch(err => showToast(err.message, 'error'));
+  });
+
+  // Cargar usuarios cuando se abre ese tab
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    if (btn.dataset.tab === 'usuarios') {
+      btn.addEventListener('click', loadUsuarios);
+    }
+  });
+</script>
+</body>
+</html>

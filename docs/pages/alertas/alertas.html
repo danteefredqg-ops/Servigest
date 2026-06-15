@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ServiGest — Alertas</title>
+  <link rel="stylesheet" href="../../css/base.css"/>
+  <link rel="stylesheet" href="../../css/components.css"/>
+  <style>
+    .alerta-card { background:var(--color-bg); border:1px solid var(--color-border); border-radius:var(--radius-lg); padding:1rem 1.25rem; display:flex; gap:14px; align-items:flex-start; transition:background .1s; }
+    .alerta-card:hover { background:var(--color-bg-secondary); }
+    .alerta-card.no-leida { border-left:3px solid var(--color-accent); }
+    .alerta-card.falta_pieza  { border-left-color:#A32D2D; }
+    .alerta-card.completado   { border-left-color:#3B6D11; }
+    .alerta-card.aprobacion   { border-left-color:#185FA5; }
+    .alerta-icono { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+    .ic-falta_pieza  { background:#FCEBEB; }
+    .ic-completado   { background:#EAF3DE; }
+    .ic-aprobacion   { background:#E6F1FB; }
+    .ic-info         { background:#F1EFE8; }
+    .alerta-titulo   { font-size:14px; font-weight:500; }
+    .alerta-mensaje  { font-size:13px; color:var(--color-text-muted); margin-top:3px; }
+    .alerta-meta     { font-size:11px; color:var(--color-text-hint); margin-top:5px; display:flex; gap:10px; flex-wrap:wrap; }
+    .alerta-acciones { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+    .filtros-strip   { display:flex; gap:8px; margin-bottom:1.25rem; flex-wrap:wrap; align-items:center; }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="logo"><div class="logo-dot"></div>ServiGest</div>
+    <nav id="sidebar-nav"></nav>
+    <div class="sidebar-user">
+      <div class="user-avatar">--</div>
+      <div><div class="user-name">Cargando...</div><div class="user-empresa"></div></div>
+    </div>
+    <button id="btn-logout" class="btn btn-ghost btn-sm" style="margin-top:8px">Cerrar sesión</button>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Alertas</h1>
+        <p class="page-subtitle">Notificaciones internas del taller</p>
+      </div>
+      <button class="btn btn-secondary" id="btn-leer-todas">✓ Marcar todas como leídas</button>
+    </div>
+
+    <div class="filtros-strip">
+      <button class="btn btn-secondary btn-sm filtro-alerta active" data-tipo="">Todas</button>
+      <button class="btn btn-secondary btn-sm filtro-alerta" data-tipo="falta_pieza">⚠ Faltan piezas</button>
+      <button class="btn btn-secondary btn-sm filtro-alerta" data-tipo="completado">✅ Terminadas</button>
+      <button class="btn btn-secondary btn-sm filtro-alerta" data-tipo="info">ℹ Info</button>
+      <label style="font-size:13px;color:var(--color-text-muted);display:flex;align-items:center;gap:6px;margin-left:auto;cursor:pointer">
+        <input type="checkbox" id="solo-no-leidas" style="accent-color:var(--color-accent)"/>
+        Solo no leídas
+      </label>
+    </div>
+
+    <div id="alertas-lista" style="display:flex;flex-direction:column;gap:10px">
+      <div style="text-align:center;padding:3rem;color:var(--color-text-muted)">Cargando...</div>
+    </div>
+
+  </main>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/api.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script>
+requireAuth();
+initSidebar('alertas');
+
+let todasAlertas = [];
+let filtroTipo   = '';
+
+const ICONOS = {
+  falta_pieza: '🔧',
+  completado:  '✅',
+  aprobacion:  '📋',
+  info:        'ℹ️',
+};
+
+async function loadAlertas() {
+  try {
+    const noLeidas = document.getElementById('solo-no-leidas').checked;
+    todasAlertas = await api.alertas.list({ solo_no_leidas: noLeidas });
+    renderAlertas();
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+function renderAlertas() {
+  const lista = filtroTipo
+    ? todasAlertas.filter(a => a.tipo === filtroTipo)
+    : todasAlertas;
+
+  const el = document.getElementById('alertas-lista');
+  if (!lista.length) {
+    el.innerHTML = `
+      <div class="empty-state" style="padding:4rem">
+        <div style="font-size:40px">🎉</div>
+        <p style="margin-top:8px">No hay alertas pendientes</p>
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = lista.map(a => `
+    <div class="alerta-card ${a.leida ? '' : 'no-leida'} ${a.tipo}" id="alerta-${a.id}">
+      <div class="alerta-icono ic-${a.tipo}">${ICONOS[a.tipo] || 'ℹ️'}</div>
+      <div style="flex:1;min-width:0">
+        <div class="alerta-titulo">${a.titulo}</div>
+        ${a.mensaje ? `<div class="alerta-mensaje">${a.mensaje}</div>` : ''}
+        <div class="alerta-meta">
+          <span>🕐 ${timeAgo(a.created_at)}</span>
+          ${a.ot_numero   ? `<span>📋 OT #${String(a.ot_numero).padStart(4,'0')}</span>` : ''}
+          ${a.ot_equipo   ? `<span>⚙️ ${a.ot_equipo}</span>` : ''}
+          ${a.cliente_nombre ? `<span>👤 ${a.cliente_nombre}</span>` : ''}
+          ${a.resuelta    ? '<span style="color:var(--color-accent)">✓ Resuelta</span>' : ''}
+        </div>
+        <div class="alerta-acciones">
+          ${a.ot_id ? `<a href="../ordenes/ordenes.html" class="btn btn-secondary btn-sm" onclick="localStorage.setItem('ot_abrir','${a.ot_id}')">Ver OT →</a>` : ''}
+          ${!a.leida ? `<button class="btn btn-ghost btn-sm" onclick="marcarLeida('${a.id}')">Marcar leída</button>` : ''}
+          ${!a.resuelta && a.tipo === 'falta_pieza' ? `<button class="btn btn-primary btn-sm" onclick="resolverAlerta('${a.id}')">✓ Resuelta</button>` : ''}
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+async function marcarLeida(id) {
+  try {
+    await api.alertas.leer(id);
+    const card = document.getElementById('alerta-' + id);
+    if (card) card.classList.remove('no-leida');
+    // Actualizar badge del sidebar
+    actualizarBadgeAlertas?.();
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+async function resolverAlerta(id) {
+  try {
+    await api.alertas.resolver(id);
+    showToast('Alerta resuelta');
+    loadAlertas();
+    actualizarBadgeAlertas?.();
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+document.getElementById('btn-leer-todas').addEventListener('click', async () => {
+  try {
+    await api.alertas.leerTodas();
+    showToast('Todas marcadas como leídas');
+    loadAlertas();
+    actualizarBadgeAlertas?.();
+  } catch(err) { showToast(err.message, 'error'); }
+});
+
+document.querySelectorAll('.filtro-alerta').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filtro-alerta').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filtroTipo = btn.dataset.tipo;
+    renderAlertas();
+  });
+});
+
+document.getElementById('solo-no-leidas').addEventListener('change', loadAlertas);
+
+function timeAgo(iso) {
+  if (!iso) return '—';
+  const diff = Math.floor((Date.now() - new Date(iso)) / 60000);
+  if (diff < 1)    return 'Hace un momento';
+  if (diff < 60)   return `Hace ${diff} min`;
+  if (diff < 1440) return `Hace ${Math.floor(diff/60)} h`;
+  return `Hace ${Math.floor(diff/1440)} días`;
+}
+
+loadAlertas();
+</script>
+</body>
+</html>
