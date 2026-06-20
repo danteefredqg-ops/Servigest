@@ -59,10 +59,13 @@ async function create(req, res, next) {
       subtotal: Number(item.cantidad) * Number(item.precio_unitario),
     }));
 
+    const { ot_id, notas, valida_hasta } = req.body;
+
     const result = await db.query(
-      `INSERT INTO cotizaciones (cliente_id, items, total, empresa_id)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [cliente_id, JSON.stringify(itemsConSubtotal), total, req.user.empresa_id]
+      `INSERT INTO cotizaciones (cliente_id, items, total, empresa_id, ot_id, notas, valida_hasta)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [cliente_id, JSON.stringify(itemsConSubtotal), total, req.user.empresa_id,
+       ot_id || null, notas || null, valida_hasta || null]
     );
 
     res.status(201).json(result.rows[0]);

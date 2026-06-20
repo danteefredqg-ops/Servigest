@@ -6,6 +6,7 @@ const router = express.Router();
 router.use(authMiddleware);
 
 router.get('/resumen',                  ctrl.resumen);
+router.get('/historial-serie',          ctrl.historialSerie);
 router.get('/',                         ctrl.getAll);
 router.get('/:id',                      ctrl.getById);
 router.post('/',                        ctrl.create);

@@ -45,6 +45,7 @@
       <button class="tab-btn" data-tab="usuarios">Usuarios</button>
       <button class="tab-btn" data-tab="planes">Plan y suscripción</button>
       <button class="tab-btn" data-tab="cuenta">Mi cuenta</button>
+      <button class="tab-btn" data-tab="seguridad">Seguridad</button>
     </div>
 
     <!-- Tab: Empresa -->
@@ -235,6 +236,49 @@
       </div>
     </div>
 
+    <!-- Tab: Seguridad -->
+    <div class="tab-panel" id="tab-seguridad">
+      <div class="settings-section">
+        <h3 style="font-size:15px;font-weight:500;margin-bottom:6px">Seguridad de sesión</h3>
+        <p style="font-size:13px;color:var(--color-text-muted);margin-bottom:1.5rem">
+          Configura cuánto tiempo puede estar inactivo ServiGest antes de cerrar sesión automáticamente.
+          Aplica solo en este dispositivo.
+        </p>
+
+        <div class="alert alert-info" style="margin-bottom:1.5rem">
+          💡 Si trabajas en una computadora compartida o con clientes cerca, te recomendamos <strong>15 o 30 minutos</strong>.
+          Si es tu computadora personal puedes poner <strong>8 horas</strong> o <strong>Nunca</strong>.
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:1.25rem">
+          <div class="form-group">
+            <label class="form-label">Cerrar sesión automáticamente después de</label>
+            <select class="form-select" id="sel-timeout" style="max-width:280px">
+              <option value="0">Nunca cerrar automáticamente</option>
+              <option value="15">15 minutos de inactividad</option>
+              <option value="30">30 minutos de inactividad</option>
+              <option value="60">1 hora de inactividad</option>
+              <option value="120">2 horas de inactividad</option>
+              <option value="240">4 horas de inactividad</option>
+              <option value="480">8 horas de inactividad</option>
+            </select>
+            <span style="font-size:11px;color:var(--color-text-hint);margin-top:4px;display:block">
+              El temporizador se reinicia cada vez que usas el sistema (mouse, teclado, toque).
+            </span>
+          </div>
+
+          <div style="background:var(--color-bg-secondary);border-radius:var(--radius-md);padding:1rem;font-size:13px;color:var(--color-text-muted)">
+            <div style="font-weight:500;margin-bottom:6px;color:var(--color-text)">Configuración actual</div>
+            <div id="timeout-resumen">Cargando...</div>
+          </div>
+
+          <button class="btn btn-primary" id="btn-guardar-seguridad" style="align-self:flex-start">
+            Guardar configuración
+          </button>
+        </div>
+      </div>
+    </div>
+
   </main>
 </div>
 
@@ -408,6 +452,41 @@
     if (btn.dataset.tab === 'usuarios') {
       btn.addEventListener('click', loadUsuarios);
     }
+    if (btn.dataset.tab === 'seguridad') {
+      btn.addEventListener('click', cargarSeguridad);
+    }
+  });
+
+  // ── Seguridad / Timeout ───────────────────────────────────────────────────
+  function cargarSeguridad() {
+    const val = localStorage.getItem('sg_session_timeout') ?? '60';
+    document.getElementById('sel-timeout').value = val;
+    actualizarResumenTimeout(val);
+  }
+
+  function actualizarResumenTimeout(val) {
+    const n = parseInt(val);
+    const labels = {
+      0: 'La sesión nunca se cierra automáticamente.',
+      15: 'Se cierra después de 15 minutos sin actividad.',
+      30: 'Se cierra después de 30 minutos sin actividad.',
+      60: 'Se cierra después de 1 hora sin actividad.',
+      120: 'Se cierra después de 2 horas sin actividad.',
+      240: 'Se cierra después de 4 horas sin actividad.',
+      480: 'Se cierra después de 8 horas sin actividad.',
+    };
+    document.getElementById('timeout-resumen').textContent =
+      labels[n] || `Se cierra después de ${n} minutos sin actividad.`;
+  }
+
+  document.getElementById('sel-timeout').addEventListener('change', function() {
+    actualizarResumenTimeout(this.value);
+  });
+
+  document.getElementById('btn-guardar-seguridad').addEventListener('click', () => {
+    const val = document.getElementById('sel-timeout').value;
+    localStorage.setItem('sg_session_timeout', val);
+    showToast('✅ Configuración de seguridad guardada. Recarga para que aplique.');
   });
 </script>
 </body>

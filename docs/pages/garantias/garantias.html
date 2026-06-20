@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ServiGest — Garantías</title>
+  <link rel="stylesheet" href="../../css/base.css"/>
+  <link rel="stylesheet" href="../../css/components.css"/>
+  <style>
+    .gar-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:1.5rem; }
+    .gar-kpi  { background:var(--color-bg); border:1px solid var(--color-border); border-radius:var(--radius-md); padding:.75rem 1rem; text-align:center; }
+    .gar-kpi .val { font-size:24px; font-weight:700; }
+    .gar-kpi .lbl { font-size:11px; color:var(--color-text-muted); margin-top:3px; text-transform:uppercase; letter-spacing:.3px; }
+    .dias-chip { font-size:11px; font-weight:600; padding:2px 8px; border-radius:10px; }
+    .dias-ok   { background:#EAF3DE; color:#3B6D11; }
+    .dias-soon { background:#FAEEDA; color:#854F0B; }
+    .dias-exp  { background:#FCEBEB; color:#A32D2D; }
+    .dias-na   { background:#F1EFE8; color:#5F5E5A; }
+    @media(max-width:700px) { .gar-kpis { grid-template-columns:repeat(2,1fr); } }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="logo"><div class="logo-dot"></div>ServiGest</div>
+    <nav id="sidebar-nav"></nav>
+    <div class="sidebar-user">
+      <div class="user-avatar">--</div>
+      <div><div class="user-name">Cargando...</div><div class="user-empresa"></div></div>
+    </div>
+    <button id="btn-logout" class="btn btn-ghost btn-sm" style="margin-top:8px">Cerrar sesión</button>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Garantías</h1>
+        <p class="page-subtitle">Control de garantías de equipos reparados</p>
+      </div>
+      <button class="btn btn-primary" id="btn-nueva">+ Nueva garantía</button>
+    </div>
+
+    <!-- KPIs -->
+    <div class="gar-kpis">
+      <div class="gar-kpi"><div class="val" id="k-total">—</div><div class="lbl">Total</div></div>
+      <div class="gar-kpi"><div class="val" style="color:#3B6D11" id="k-activas">—</div><div class="lbl">Activas</div></div>
+      <div class="gar-kpi"><div class="val" style="color:#854F0B" id="k-pronto">—</div><div class="lbl">Por vencer (&lt;30 días)</div></div>
+      <div class="gar-kpi"><div class="val" style="color:#A32D2D" id="k-vencidas">—</div><div class="lbl">Vencidas</div></div>
+    </div>
+
+    <!-- Filtro -->
+    <div class="flex gap-8" style="margin-bottom:1rem;flex-wrap:wrap">
+      <div class="search-wrapper">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="search-input" id="buscador-gar" placeholder="Buscar equipo o cliente..."/>
+      </div>
+      <select class="form-select" id="filtro-estado" style="font-size:13px;min-height:36px;width:160px">
+        <option value="">Todos los estados</option>
+        <option value="activa">Activa</option>
+        <option value="vencida">Vencida</option>
+        <option value="reclamada">Reclamada</option>
+        <option value="anulada">Anulada</option>
+      </select>
+    </div>
+
+    <!-- Tabla -->
+    <div class="card" style="padding:0">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Equipo</th>
+              <th>Cliente</th>
+              <th>Inicio</th>
+              <th>Vence</th>
+              <th>Días restantes</th>
+              <th>Estado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tabla-garantias">
+            <tr><td colspan="7" style="text-align:center;color:var(--color-text-muted);padding:2rem">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal nueva garantía -->
+<div class="modal-overlay" id="modal-garantia">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <span class="modal-title">Nueva garantía</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modal-garantia')">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:1rem">
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Cliente *</label>
+          <select class="form-select" id="gar-cliente"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Meses de garantía *</label>
+          <select class="form-select" id="gar-meses">
+            <option value="1">1 mes</option>
+            <option value="3">3 meses</option>
+            <option value="6" selected>6 meses</option>
+            <option value="12">12 meses</option>
+            <option value="24">24 meses</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Equipo / Máquina</label>
+          <input class="form-input" id="gar-equipo" placeholder="Ej. Torno CNC, Compresor..."/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Número de serie</label>
+          <input class="form-input" id="gar-serie" placeholder="SN-XXXXX"/>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Descripción de la reparación *</label>
+        <textarea class="form-textarea" id="gar-desc" placeholder="¿Qué se reparó o reemplazó? La garantía cubre esta reparación específica."></textarea>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Fecha de inicio</label>
+          <input class="form-input" type="date" id="gar-fecha"/>
+        </div>
+        <div class="form-group" style="justify-content:flex-end;padding-bottom:0">
+          <div style="background:var(--color-bg-secondary);border-radius:var(--radius-md);padding:10px;font-size:12px;color:var(--color-text-muted)">
+            Vence: <strong id="gar-fecha-fin-preview">—</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Notas adicionales</label>
+        <textarea class="form-textarea" id="gar-notas" placeholder="Condiciones especiales, exclusiones, etc." style="min-height:60px"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-garantia')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-gar">Guardar garantía</button>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/api.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script>
+requireAuth();
+initSidebar('garantias');
+
+let todasGar = [];
+
+function diasRestantes(fechaFin) {
+  const hoy  = new Date(); hoy.setHours(0,0,0,0);
+  const fin  = new Date(fechaFin);
+  return Math.ceil((fin - hoy) / (1000 * 60 * 60 * 24));
+}
+
+function diasChip(g) {
+  if (g.estado !== 'activa') return `<span class="dias-chip dias-na">${g.estado}</span>`;
+  const d = diasRestantes(g.fecha_fin);
+  if (d < 0)  return `<span class="dias-chip dias-exp">Vencida hace ${Math.abs(d)} día(s)</span>`;
+  if (d <= 30) return `<span class="dias-chip dias-soon">${d} día(s)</span>`;
+  return `<span class="dias-chip dias-ok">${d} días</span>`;
+}
+
+async function loadGarantias() {
+  try {
+    todasGar = await api.garantias.list();
+    actualizarKPIs();
+    renderTabla();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+function actualizarKPIs() {
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const activas  = todasGar.filter(g => g.estado === 'activa');
+  const pronto   = activas.filter(g => { const d = diasRestantes(g.fecha_fin); return d >= 0 && d <= 30; });
+  const vencidas = todasGar.filter(g => {
+    if (g.estado === 'vencida') return true;
+    if (g.estado === 'activa') return diasRestantes(g.fecha_fin) < 0;
+    return false;
+  });
+  document.getElementById('k-total').textContent   = todasGar.length;
+  document.getElementById('k-activas').textContent = activas.length;
+  document.getElementById('k-pronto').textContent  = pronto.length;
+  document.getElementById('k-vencidas').textContent= vencidas.length;
+}
+
+function renderTabla() {
+  const q       = document.getElementById('buscador-gar').value.toLowerCase();
+  const estado  = document.getElementById('filtro-estado').value;
+  const tbody   = document.getElementById('tabla-garantias');
+
+  let lista = todasGar;
+  if (q)      lista = lista.filter(g => (g.equipo||'').toLowerCase().includes(q) || g.cliente_nombre.toLowerCase().includes(q));
+  if (estado) lista = lista.filter(g => g.estado === estado);
+
+  if (!lista.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--color-text-muted);padding:2rem">Sin garantías</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = lista.map(g => `
+    <tr>
+      <td>
+        <div style="font-size:13px;font-weight:500">${g.equipo || '—'}</div>
+        ${g.num_serie ? `<div style="font-size:11px;color:var(--color-text-muted)">Serie: ${g.num_serie}</div>` : ''}
+        <div style="font-size:11px;color:var(--color-text-muted);margin-top:2px">${g.descripcion.slice(0,50)}${g.descripcion.length>50?'...':''}</div>
+      </td>
+      <td>
+        <div style="font-size:13px;font-weight:500">${g.cliente_nombre}</div>
+        ${g.cliente_telefono ? `<div style="font-size:11px;color:var(--color-text-muted)">${g.cliente_telefono}</div>` : ''}
+      </td>
+      <td style="font-size:12px;color:var(--color-text-muted)">${formatDate(g.fecha_inicio)}</td>
+      <td style="font-size:12px;font-weight:500">${formatDate(g.fecha_fin)}</td>
+      <td>${diasChip(g)}</td>
+      <td>${estadoBadge(g.estado)}</td>
+      <td>
+        <div class="flex gap-8">
+          <select class="form-select" style="font-size:12px;padding:3px 8px;min-height:30px;width:120px"
+            onchange="cambiarEstado('${g.id}', this.value)">
+            <option value="activa"   ${g.estado==='activa'   ?'selected':''}>Activa</option>
+            <option value="reclamada"${g.estado==='reclamada'?'selected':''}>Reclamada</option>
+            <option value="vencida"  ${g.estado==='vencida'  ?'selected':''}>Vencida</option>
+            <option value="anulada"  ${g.estado==='anulada'  ?'selected':''}>Anulada</option>
+          </select>
+          <button class="btn btn-ghost btn-icon" data-permiso="eliminar"
+            onclick="eliminarGarantia('${g.id}')" title="Eliminar">✕</button>
+        </div>
+      </td>
+    </tr>`).join('');
+
+  Permisos.aplicar();
+}
+
+async function cambiarEstado(id, estado) {
+  try {
+    await api.garantias.updateEstado(id, estado);
+    showToast('Estado actualizado');
+    loadGarantias();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function eliminarGarantia(id) {
+  if (!confirm('¿Eliminar esta garantía?')) return;
+  try {
+    await api.garantias.delete(id);
+    showToast('Garantía eliminada');
+    loadGarantias();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// ── Filtros ───────────────────────────────────────────────────────────────────
+['buscador-gar','filtro-estado'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', renderTabla);
+  document.getElementById(id)?.addEventListener('change', renderTabla);
+});
+
+// ── Modal nueva garantía ──────────────────────────────────────────────────────
+function actualizarPreviewFechaFin() {
+  const fechaIni = document.getElementById('gar-fecha').value;
+  const meses    = parseInt(document.getElementById('gar-meses').value) || 6;
+  if (!fechaIni) { document.getElementById('gar-fecha-fin-preview').textContent = '—'; return; }
+  const fin = new Date(fechaIni);
+  fin.setMonth(fin.getMonth() + meses);
+  document.getElementById('gar-fecha-fin-preview').textContent = formatDate(fin.toISOString());
+}
+
+document.getElementById('btn-nueva').addEventListener('click', async () => {
+  const clientes = await api.clientes.list();
+  document.getElementById('gar-cliente').innerHTML =
+    clientes.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+  const hoy = new Date().toISOString().split('T')[0];
+  document.getElementById('gar-fecha').value = hoy;
+  document.getElementById('gar-equipo').value  = '';
+  document.getElementById('gar-serie').value   = '';
+  document.getElementById('gar-desc').value    = '';
+  document.getElementById('gar-notas').value   = '';
+  document.getElementById('gar-meses').value   = '6';
+  actualizarPreviewFechaFin();
+  openModal('modal-garantia');
+});
+
+['gar-fecha','gar-meses'].forEach(id =>
+  document.getElementById(id)?.addEventListener('change', actualizarPreviewFechaFin)
+);
+
+document.getElementById('btn-guardar-gar').addEventListener('click', async () => {
+  const body = {
+    cliente_id:   document.getElementById('gar-cliente').value,
+    equipo:       document.getElementById('gar-equipo').value.trim(),
+    num_serie:    document.getElementById('gar-serie').value.trim(),
+    descripcion:  document.getElementById('gar-desc').value.trim(),
+    fecha_inicio: document.getElementById('gar-fecha').value,
+    meses:        parseInt(document.getElementById('gar-meses').value),
+    notas:        document.getElementById('gar-notas').value.trim(),
+  };
+  if (!body.descripcion) return showToast('Describe qué se reparó', 'error');
+  try {
+    await api.garantias.create(body);
+    showToast('✅ Garantía registrada');
+    closeModal('modal-garantia');
+    loadGarantias();
+  } catch (err) { showToast(err.message, 'error'); }
+});
+
+loadGarantias();
+</script>
+</body>
+</html>

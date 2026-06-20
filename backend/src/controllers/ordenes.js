@@ -363,4 +363,28 @@ async function resumen(req, res, next) {
   } catch(err) { next(err); }
 }
 
-module.exports = { getAll, getById, create, cambiarEstado, solicitarPieza, marcarPiezaDisponible, resumen };
+// ── Historial por número de serie ─────────────────────────────────────────────
+async function historialSerie(req, res, next) {
+  try {
+    const { serie } = req.query;
+    if (!serie?.trim()) return res.status(400).json({ error: 'Parámetro serie requerido' });
+
+    const result = await db.query(
+      `SELECT ot.id, ot.numero, ot.equipo, ot.num_serie, ot.descripcion,
+              ot.estado, ot.prioridad, ot.total, ot.created_at, ot.updated_at,
+              c.nombre AS cliente_nombre, c.telefono AS cliente_telefono,
+              u.nombre AS tecnico_nombre
+       FROM ordenes_trabajo ot
+       JOIN clientes c ON c.id = ot.cliente_id
+       LEFT JOIN usuarios u ON u.id = ot.tecnico_id
+       WHERE ot.empresa_id = $1
+         AND ot.num_serie ILIKE $2
+       ORDER BY ot.created_at DESC`,
+      [req.user.empresa_id, `%${serie.trim()}%`]
+    );
+
+    res.json(result.rows);
+  } catch (err) { next(err); }
+}
+
+module.exports = { getAll, getById, create, cambiarEstado, solicitarPieza, marcarPiezaDisponible, resumen, historialSerie };

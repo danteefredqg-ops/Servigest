@@ -33,7 +33,7 @@
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>Cliente</th><th>Items</th><th>Total</th><th>Fecha</th><th>Estado</th><th></th></tr>
+            <tr><th>Cliente</th><th>Items</th><th>Total</th><th>Fecha</th><th>Estado</th><th>WhatsApp</th><th></th></tr>
           </thead>
           <tbody id="tabla-cotizaciones">
             <tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);padding:2rem">Cargando...</td></tr>
@@ -109,6 +109,14 @@
               <option value="aceptada"  ${c.estado==='aceptada'  ?'selected':''}>Aceptada</option>
               <option value="rechazada" ${c.estado==='rechazada' ?'selected':''}>Rechazada</option>
             </select>
+          </td>
+          <td>
+            ${c.cliente_telefono
+              ? `<button class="btn btn-secondary btn-sm" onclick="enviarWhatsApp(${JSON.stringify(c).replace(/"/g,'&quot;')})" title="Enviar por WhatsApp">
+                   📱 WA
+                 </button>`
+              : `<span style="font-size:11px;color:var(--color-text-muted)">Sin tel.</span>`
+            }
           </td>
         </tr>
       `).join('');
@@ -196,6 +204,16 @@
       showToast(err.message, 'error');
     }
   });
+
+  function enviarWhatsApp(c) {
+    const tel = c.cliente_telefono.replace(/\D/g, '');
+    const num = tel.startsWith('52') ? tel : '52' + tel;
+    const items = (c.items || []).map(i =>
+      `• ${i.descripcion} x${i.cantidad} = ${formatMoney(i.subtotal)}`
+    ).join('\n');
+    const msg = `Hola ${c.cliente_nombre}, te comparto tu cotización de *ServiGest*:\n\n*Conceptos:*\n${items || '(sin conceptos)'}\n\n*Total: ${formatMoney(c.total)}*\n\nEsta cotización es válida por 30 días. Cualquier duda con gusto te atendemos.`;
+    window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
+  }
 
   loadCotizaciones();
 </script>

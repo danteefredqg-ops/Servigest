@@ -127,12 +127,14 @@ const api = {
 
   // ── Productos ─────────────────────────────────────────────────────────────
   productos: {
-    list:      (f={}) => api.get('/productos' + buildQuery(f)),
-    stockBajo: ()     => api.get('/productos/stock-bajo'),
-    get:       (id)   => api.get(`/productos/${id}`),
-    create:    (b)    => api.post('/productos', b),
-    update:    (id,b) => api.patch(`/productos/${id}`, b),
-    delete:    (id)   => api.delete(`/productos/${id}`),
+    list:             (f={})    => api.get('/productos' + buildQuery(f)),
+    stockBajo:        ()        => api.get('/productos/stock-bajo'),
+    get:              (id)      => api.get(`/productos/${id}`),
+    create:           (b)       => api.post('/productos', b),
+    update:           (id,b)    => api.patch(`/productos/${id}`, b),
+    delete:           (id)      => api.delete(`/productos/${id}`),
+    historialPrecios: (id)      => api.get(`/productos/${id}/historial-precios`),
+    addPrecioCompra:  (id,b)    => api.post(`/productos/${id}/historial-precios`, b),
   },
 
   // ── Cotizaciones ──────────────────────────────────────────────────────────
@@ -177,6 +179,7 @@ const api = {
     cambiarEstado:        (id,b)    => api.patch(`/ordenes/${id}/estado`, b),
     solicitarPieza:       (id,b)    => api.post(`/ordenes/${id}/solicitar-pieza`, b),
     marcarPiezaDisponible:(id,b)    => api.post(`/ordenes/${id}/pieza-disponible`, b),
+    historialSerie:       (serie)   => api.get('/ordenes/historial-serie' + buildQuery({ serie })),
   },
 
   // ── Alertas ───────────────────────────────────────────────────────────────
@@ -232,6 +235,19 @@ const api = {
     list:       (f={}) => api.get('/audit' + buildQuery(f)),
     resumen:    ()     => api.get('/audit/resumen'),
     porUsuario: ()     => api.get('/audit/usuarios'),
+  },
+
+  // ── Caja ──────────────────────────────────────────────────────────────────
+  caja: {
+    corte: (fecha) => api.get('/caja/corte' + (fecha ? `?fecha=${fecha}` : '')),
+  },
+
+  // ── Garantías ─────────────────────────────────────────────────────────────
+  garantias: {
+    list:         ()         => api.get('/garantias'),
+    create:       (b)        => api.post('/garantias', b),
+    updateEstado: (id,estado) => api.patch(`/garantias/${id}/estado`, { estado }),
+    delete:       (id)       => api.delete(`/garantias/${id}`),
   },
 };
 

@@ -64,6 +64,7 @@
               <th>Unidad</th>
               <th>Precio</th>
               <th>Costo</th>
+              <th>Proveedor</th>
               <th>Stock</th>
               <th>Estado</th>
               <th></th>
@@ -129,6 +130,14 @@
           <input class="form-input" id="p-clave-sat" placeholder="84111500" />
           <span style="font-size:11px;color:var(--color-text-hint);margin-top:4px">Consulta el catálogo SAT en sat.gob.mx</span>
         </div>
+        <div class="form-group">
+          <label class="form-label">Proveedor</label>
+          <input class="form-input" id="p-proveedor" placeholder="Nombre del proveedor" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fecha de compra</label>
+          <input class="form-input" type="date" id="p-fecha-compra" />
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -155,6 +164,45 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-importar')">Cerrar</button>
       <button class="btn btn-primary" id="btn-hacer-import" disabled>Importar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal historial precios -->
+<div class="modal-overlay" id="modal-historial-precios">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <span class="modal-title" id="hist-titulo">Historial de precios</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modal-historial-precios')">✕</button>
+    </div>
+
+    <!-- Registrar nuevo precio -->
+    <div style="background:var(--color-bg-secondary);border-radius:var(--radius-md);padding:1rem;margin-bottom:1rem">
+      <div style="font-size:12px;font-weight:600;color:var(--color-text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.3px">Registrar nueva compra</div>
+      <div class="grid-2" style="gap:8px">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Precio de compra *</label>
+          <input class="form-input" type="number" id="np-precio" placeholder="0.00" min="0" step="0.01"/>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Fecha</label>
+          <input class="form-input" type="date" id="np-fecha"/>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Proveedor</label>
+          <input class="form-input" id="np-proveedor" placeholder="Nombre del proveedor"/>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Notas</label>
+          <input class="form-input" id="np-notas" placeholder="Opcional"/>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" id="btn-agregar-precio" style="margin-top:10px">+ Registrar compra</button>
+    </div>
+
+    <!-- Lista historial -->
+    <div id="hist-lista">
+      <div style="text-align:center;padding:1.5rem;color:var(--color-text-muted);font-size:13px">Cargando...</div>
     </div>
   </div>
 </div>
@@ -213,6 +261,10 @@
           ${formatMoney(p.costo)}
           ${margen !== null ? `<span style="font-size:10px;color:var(--color-accent);margin-left:4px">${margen}%</span>` : ''}
         </td>
+        <td style="font-size:12px;color:var(--color-text-muted)">
+          <div>${p.proveedor || '—'}</div>
+          ${p.fecha_compra ? `<div style="font-size:10px;color:var(--color-text-hint)">${formatDate(p.fecha_compra)}</div>` : ''}
+        </td>
         <td>
           <span style="font-size:15px;font-weight:600">${p.stock}</span>
           <span style="font-size:10px;color:var(--color-text-hint);margin-left:4px">/ mín ${p.stock_minimo}</span>
@@ -221,6 +273,7 @@
         <td>
           <div class="flex gap-8">
             <button class="btn btn-ghost btn-sm" onclick="editarProducto('${p.id}')">Editar</button>
+            <button class="btn btn-ghost btn-sm" onclick="verHistorialPrecios('${p.id}','${p.nombre}')">Historial</button>
             <button class="btn btn-ghost btn-sm" onclick="eliminarProducto('${p.id}')">Borrar</button>
           </div>
         </td>
@@ -254,7 +307,7 @@
   document.getElementById('btn-nuevo').addEventListener('click', () => {
     document.getElementById('modal-titulo').textContent = 'Nuevo producto';
     document.getElementById('prod-id').value = '';
-    ['p-nombre','p-sku','p-precio','p-costo','p-stock','p-stock-min','p-clave-sat']
+    ['p-nombre','p-sku','p-precio','p-costo','p-stock','p-stock-min','p-clave-sat','p-proveedor','p-fecha-compra']
       .forEach(id => document.getElementById(id).value = '');
     document.getElementById('p-unidad').value = 'pieza';
     openModal('modal-producto');
@@ -264,15 +317,17 @@
     try {
       const p = await api.productos.get(id);
       document.getElementById('modal-titulo').textContent = 'Editar producto';
-      document.getElementById('prod-id').value      = p.id;
-      document.getElementById('p-nombre').value     = p.nombre;
-      document.getElementById('p-sku').value        = p.sku || '';
-      document.getElementById('p-unidad').value     = p.unidad;
-      document.getElementById('p-precio').value     = p.precio;
-      document.getElementById('p-costo').value      = p.costo || '';
-      document.getElementById('p-stock').value      = p.stock;
-      document.getElementById('p-stock-min').value  = p.stock_minimo;
-      document.getElementById('p-clave-sat').value  = p.clave_sat || '';
+      document.getElementById('prod-id').value          = p.id;
+      document.getElementById('p-nombre').value         = p.nombre;
+      document.getElementById('p-sku').value            = p.sku || '';
+      document.getElementById('p-unidad').value         = p.unidad;
+      document.getElementById('p-precio').value         = p.precio;
+      document.getElementById('p-costo').value          = p.costo || '';
+      document.getElementById('p-stock').value          = p.stock;
+      document.getElementById('p-stock-min').value      = p.stock_minimo;
+      document.getElementById('p-clave-sat').value      = p.clave_sat || '';
+      document.getElementById('p-proveedor').value      = p.proveedor || '';
+      document.getElementById('p-fecha-compra').value   = p.fecha_compra ? p.fecha_compra.split('T')[0] : '';
       openModal('modal-producto');
     } catch(err) { showToast(err.message, 'error'); }
   }
@@ -288,6 +343,8 @@
       stock:        parseInt(document.getElementById('p-stock').value)    || 0,
       stock_minimo: parseInt(document.getElementById('p-stock-min').value)|| 0,
       clave_sat:    document.getElementById('p-clave-sat').value.trim() || '84111500',
+      proveedor:    document.getElementById('p-proveedor').value.trim() || null,
+      fecha_compra: document.getElementById('p-fecha-compra').value || null,
     };
     if (!body.nombre) return showToast('El nombre es requerido', 'error');
     try {
@@ -295,6 +352,72 @@
       else    { await api.productos.create(body);     showToast('Producto creado'); }
       closeModal('modal-producto');
       loadProductos();
+    } catch(err) { showToast(err.message, 'error'); }
+  });
+
+  // ── Historial de precios de compra ─────────────────────────────────────────
+  let histProdId = null;
+
+  async function verHistorialPrecios(id, nombre) {
+    histProdId = id;
+    document.getElementById('hist-titulo').textContent = `Historial — ${nombre}`;
+    document.getElementById('np-precio').value    = '';
+    document.getElementById('np-proveedor').value = '';
+    document.getElementById('np-notas').value     = '';
+    document.getElementById('np-fecha').value     = new Date().toISOString().split('T')[0];
+    openModal('modal-historial-precios');
+    await cargarHistorialPrecios();
+  }
+
+  async function cargarHistorialPrecios() {
+    const el = document.getElementById('hist-lista');
+    try {
+      const lista = await api.productos.historialPrecios(histProdId);
+      if (!lista.length) {
+        el.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--color-text-muted);font-size:13px">Sin registros de compra aún</div>';
+        return;
+      }
+      el.innerHTML = `
+        <div style="font-size:12px;font-weight:600;color:var(--color-text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">Historial de compras</div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="border-bottom:1px solid var(--color-border)">
+              <th style="text-align:left;padding:6px 4px;color:var(--color-text-muted);font-weight:500">Fecha</th>
+              <th style="text-align:left;padding:6px 4px;color:var(--color-text-muted);font-weight:500">Proveedor</th>
+              <th style="text-align:right;padding:6px 4px;color:var(--color-text-muted);font-weight:500">Precio</th>
+              <th style="text-align:left;padding:6px 4px;color:var(--color-text-muted);font-weight:500">Notas</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${lista.map(h => `
+              <tr style="border-bottom:1px solid var(--color-border)">
+                <td style="padding:8px 4px">${formatDate(h.fecha)}</td>
+                <td style="padding:8px 4px;color:var(--color-text-muted)">${h.proveedor || '—'}</td>
+                <td style="padding:8px 4px;text-align:right;font-weight:600">${formatMoney(h.precio)}</td>
+                <td style="padding:8px 4px;color:var(--color-text-muted);font-size:11px">${h.notas || '—'}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    } catch(err) { el.innerHTML = `<div class="alert alert-warning">${err.message}</div>`; }
+  }
+
+  document.getElementById('btn-agregar-precio').addEventListener('click', async () => {
+    if (!histProdId) return;
+    const precio = parseFloat(document.getElementById('np-precio').value);
+    if (!precio || precio <= 0) return showToast('Ingresa un precio válido', 'error');
+    try {
+      await api.productos.addPrecioCompra(histProdId, {
+        precio,
+        proveedor: document.getElementById('np-proveedor').value.trim() || null,
+        fecha:     document.getElementById('np-fecha').value,
+        notas:     document.getElementById('np-notas').value.trim() || null,
+      });
+      showToast('✅ Precio de compra registrado');
+      document.getElementById('np-precio').value    = '';
+      document.getElementById('np-proveedor').value = '';
+      document.getElementById('np-notas').value     = '';
+      await cargarHistorialPrecios();
+      loadProductos(); // refresca la tabla con el nuevo costo
     } catch(err) { showToast(err.message, 'error'); }
   });
 

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ServiGest — Corte de Caja</title>
+  <link rel="stylesheet" href="../../css/base.css"/>
+  <link rel="stylesheet" href="../../css/components.css"/>
+  <style>
+    .caja-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:1.5rem; }
+    .caja-kpi  { background:var(--color-bg); border:1px solid var(--color-border); border-radius:var(--radius-md); padding:1rem 1.25rem; }
+    .caja-kpi .lbl { font-size:11px; font-weight:500; text-transform:uppercase; letter-spacing:.4px; color:var(--color-text-muted); margin-bottom:6px; }
+    .caja-kpi .val { font-size:26px; font-weight:700; }
+    .caja-kpi .sub { font-size:12px; color:var(--color-text-muted); margin-top:3px; }
+    .seccion-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+    .metodo-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--color-border); }
+    .metodo-row:last-child { border-bottom:none; }
+    .metodo-icon { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; margin-right:10px; }
+    @media(max-width:700px) { .caja-kpis { grid-template-columns:repeat(2,1fr); } .seccion-grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="logo"><div class="logo-dot"></div>ServiGest</div>
+    <nav id="sidebar-nav"></nav>
+    <div class="sidebar-user">
+      <div class="user-avatar">--</div>
+      <div><div class="user-name">Cargando...</div><div class="user-empresa"></div></div>
+    </div>
+    <button id="btn-logout" class="btn btn-ghost btn-sm" style="margin-top:8px">Cerrar sesión</button>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Corte de Caja</h1>
+        <p class="page-subtitle">Resumen de ventas y cobros del día</p>
+      </div>
+      <div class="flex gap-8" style="align-items:center">
+        <input type="date" class="form-input" id="inp-fecha" style="width:180px;min-height:38px"/>
+        <button class="btn btn-primary" id="btn-consultar">Consultar</button>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="caja-kpis">
+      <div class="caja-kpi">
+        <div class="lbl">Total ventas</div>
+        <div class="val" id="k-total-ventas">—</div>
+        <div class="sub" id="k-num-pedidos">0 pedidos</div>
+      </div>
+      <div class="caja-kpi">
+        <div class="lbl">Ticket promedio</div>
+        <div class="val" id="k-ticket">—</div>
+        <div class="sub">por pedido</div>
+      </div>
+      <div class="caja-kpi">
+        <div class="lbl">Total cobrado</div>
+        <div class="val" style="color:var(--color-accent)" id="k-cobrado">—</div>
+        <div class="sub">pagos registrados</div>
+      </div>
+      <div class="caja-kpi">
+        <div class="lbl">Diferencia</div>
+        <div class="val" id="k-diferencia">—</div>
+        <div class="sub" id="k-diferencia-label">ventas - cobros</div>
+      </div>
+    </div>
+
+    <div class="seccion-grid">
+      <!-- Ventas por estado -->
+      <div class="card">
+        <div style="font-size:13px;font-weight:600;margin-bottom:1rem;padding-bottom:8px;border-bottom:1px solid var(--color-border)">
+          Pedidos por estado
+        </div>
+        <div id="estados-wrap">
+          <div style="color:var(--color-text-muted);font-size:13px">Selecciona una fecha</div>
+        </div>
+      </div>
+
+      <!-- Cobros por método -->
+      <div class="card">
+        <div style="font-size:13px;font-weight:600;margin-bottom:1rem;padding-bottom:8px;border-bottom:1px solid var(--color-border)">
+          Cobros por método de pago
+        </div>
+        <div id="cobros-wrap">
+          <div style="color:var(--color-text-muted);font-size:13px">Selecciona una fecha</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/api.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script>
+requireAuth();
+initSidebar('caja');
+
+const ESTADO_LABEL = {
+  pendiente:'Pendiente', en_camino:'En camino', entregado:'Entregado', cancelado:'Cancelado',
+};
+const ESTADO_COLOR = {
+  pendiente:'#854F0B', en_camino:'#185FA5', entregado:'#3B6D11', cancelado:'#A32D2D',
+};
+const METODO_ICON = {
+  efectivo:'💵', transferencia:'🏦', tarjeta:'💳',
+};
+
+const hoy = new Date().toISOString().split('T')[0];
+document.getElementById('inp-fecha').value = hoy;
+
+async function cargarCorte() {
+  const fecha = document.getElementById('inp-fecha').value || hoy;
+  try {
+    const d = await api.caja.corte(fecha);
+
+    document.getElementById('k-total-ventas').textContent = formatMoney(d.pedidos.total);
+    document.getElementById('k-num-pedidos').textContent  = `${d.pedidos.num} pedido(s)`;
+    document.getElementById('k-ticket').textContent       = formatMoney(d.pedidos.ticket_promedio);
+    document.getElementById('k-cobrado').textContent      = formatMoney(d.cobros.total);
+
+    const diff = d.pedidos.total - d.cobros.total;
+    const kDif = document.getElementById('k-diferencia');
+    kDif.textContent = formatMoney(Math.abs(diff));
+    kDif.style.color = diff > 0 ? '#A32D2D' : '#3B6D11';
+    document.getElementById('k-diferencia-label').textContent = diff > 0 ? 'pendiente de cobrar' : 'cobros exceden ventas';
+
+    // Estados
+    const estadosWrap = document.getElementById('estados-wrap');
+    if (!d.pedidos.por_estado.length) {
+      estadosWrap.innerHTML = '<div style="color:var(--color-text-muted);font-size:13px">Sin pedidos ese día</div>';
+    } else {
+      estadosWrap.innerHTML = d.pedidos.por_estado.map(e => `
+        <div class="metodo-row">
+          <div class="flex" style="align-items:center;gap:10px">
+            <div class="metodo-icon" style="background:${ESTADO_COLOR[e.estado] || '#5F5E5A'}22">
+              <span style="font-size:10px;font-weight:700;color:${ESTADO_COLOR[e.estado] || '#5F5E5A'}">${String(e.num).padStart(2,'0')}</span>
+            </div>
+            <div>
+              <div style="font-size:13px;font-weight:500">${ESTADO_LABEL[e.estado] || e.estado}</div>
+              <div style="font-size:11px;color:var(--color-text-muted)">${e.num} pedido(s)</div>
+            </div>
+          </div>
+          <div style="font-size:14px;font-weight:600">${formatMoney(e.total)}</div>
+        </div>`).join('');
+    }
+
+    // Cobros
+    const cobrosWrap = document.getElementById('cobros-wrap');
+    if (!d.cobros.por_metodo.length) {
+      cobrosWrap.innerHTML = '<div style="color:var(--color-text-muted);font-size:13px">Sin cobros registrados ese día</div>';
+    } else {
+      const totalCobros = d.cobros.total;
+      cobrosWrap.innerHTML = d.cobros.por_metodo.map(m => {
+        const pct = totalCobros > 0 ? Math.round((Number(m.total) / totalCobros) * 100) : 0;
+        return `
+          <div class="metodo-row">
+            <div class="flex" style="align-items:center;gap:10px">
+              <div class="metodo-icon" style="background:var(--color-bg-secondary);font-size:18px">
+                ${METODO_ICON[m.metodo] || '💰'}
+              </div>
+              <div>
+                <div style="font-size:13px;font-weight:500;text-transform:capitalize">${m.metodo}</div>
+                <div style="font-size:11px;color:var(--color-text-muted)">${m.num} pago(s) · ${pct}%</div>
+              </div>
+            </div>
+            <div style="font-size:14px;font-weight:600;color:var(--color-accent)">${formatMoney(m.total)}</div>
+          </div>`;
+      }).join('');
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+document.getElementById('btn-consultar').addEventListener('click', cargarCorte);
+cargarCorte();
+</script>
+</body>
+</html>

@@ -5,11 +5,13 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
-router.get('/stock-bajo', ctrl.stockBajo);
-router.get('/',           ctrl.getAll);     // operador ve productos (sin costo — filtrado en controller)
-router.get('/:id',        ctrl.getById);
-router.post('/',          soloAdmin, ctrl.create);   // solo admin crea
-router.patch('/:id',      soloAdmin, ctrl.update);   // solo admin edita precios
-router.delete('/:id',     soloAdmin, ctrl.remove);
+router.get('/stock-bajo',              ctrl.stockBajo);
+router.get('/',                        ctrl.getAll);
+router.get('/:id',                     ctrl.getById);
+router.get('/:id/historial-precios',   ctrl.getHistorialPrecios);
+router.post('/',                       soloAdmin, ctrl.create);
+router.post('/:id/historial-precios',  soloAdmin, ctrl.addPrecioCompra);
+router.patch('/:id',                   soloAdmin, ctrl.update);
+router.delete('/:id',                  soloAdmin, ctrl.remove);
 
 module.exports = router;

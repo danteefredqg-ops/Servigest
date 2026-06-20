@@ -13,6 +13,61 @@ function requireAuth() {
   }
 }
 
+// ── Timeout de sesión por inactividad ────────────────────────────────────────
+(function initSessionTimeout() {
+  const mins = parseInt(localStorage.getItem('sg_session_timeout') ?? '60');
+  if (!mins) return; // 0 = nunca cerrar
+
+  let logoutTimer;
+  let warnTimer;
+  let warnEl;
+
+  function mostrarAviso() {
+    if (warnEl) return;
+    warnEl = document.createElement('div');
+    warnEl.id = 'sg-inactivity-warn';
+    warnEl.style.cssText = [
+      'position:fixed;bottom:80px;right:1.5rem;z-index:9998;',
+      'background:#854F0B;color:#fff;padding:14px 18px;border-radius:10px;',
+      'font-size:13px;font-weight:500;box-shadow:0 4px 16px rgba(0,0,0,.25);',
+      'display:flex;align-items:center;gap:12px;max-width:320px;',
+    ].join('');
+    warnEl.innerHTML = `
+      <span>⚠ Tu sesión cerrará en 1 minuto por inactividad</span>
+      <button onclick="sgResetTimeout()" style="
+        background:rgba(255,255,255,.2);border:none;color:#fff;padding:4px 10px;
+        border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap
+      ">Seguir activo</button>`;
+    document.body.appendChild(warnEl);
+  }
+
+  function ocultarAviso() {
+    if (warnEl) { warnEl.remove(); warnEl = null; }
+  }
+
+  function reset() {
+    clearTimeout(logoutTimer);
+    clearTimeout(warnTimer);
+    ocultarAviso();
+
+    if (mins > 1) {
+      warnTimer = setTimeout(mostrarAviso, (mins - 1) * 60_000);
+    }
+    logoutTimer = setTimeout(() => {
+      ocultarAviso();
+      api.logout();
+    }, mins * 60_000);
+  }
+
+  window.sgResetTimeout = reset;
+
+  ['mousemove','keydown','click','touchstart','scroll'].forEach(ev =>
+    document.addEventListener(ev, reset, { passive: true })
+  );
+
+  reset();
+})();
+
 // ── Sidebar con datos del usuario ────────────────────────────────────────────
 function initSidebar(activeId) {
   if (typeof buildSidebar === 'function') buildSidebar(activeId);

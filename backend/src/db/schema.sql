@@ -307,3 +307,47 @@ CREATE INDEX IF NOT EXISTS idx_alertas_empresa  ON alertas(empresa_id);
 CREATE INDEX IF NOT EXISTS idx_alertas_rol      ON alertas(para_rol);
 CREATE INDEX IF NOT EXISTS idx_alertas_leida    ON alertas(leida);
 CREATE INDEX IF NOT EXISTS idx_alertas_ot       ON alertas(ot_id);
+
+-- ── GARANTÍAS ─────────────────────────────────────────────────────────────────
+DO $$ BEGIN
+  CREATE TYPE estado_garantia AS ENUM ('activa','vencida','reclamada','anulada');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS garantias (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  empresa_id   UUID NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+  ot_id        UUID REFERENCES ordenes_trabajo(id) ON DELETE SET NULL,
+  cliente_id   UUID NOT NULL REFERENCES clientes(id) ON DELETE RESTRICT,
+  equipo       VARCHAR(200),
+  num_serie    VARCHAR(100),
+  descripcion  TEXT NOT NULL,
+  fecha_inicio DATE NOT NULL DEFAULT CURRENT_DATE,
+  fecha_fin    DATE NOT NULL,
+  estado       estado_garantia NOT NULL DEFAULT 'activa',
+  notas        TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_garantias_empresa ON garantias(empresa_id);
+CREATE INDEX IF NOT EXISTS idx_garantias_cliente ON garantias(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_garantias_estado  ON garantias(estado);
+
+-- ── COLUMNAS ADICIONALES (idempotentes) ──────────────────────────────────────
+ALTER TABLE productos    ADD COLUMN IF NOT EXISTS proveedor    VARCHAR(200);
+ALTER TABLE productos    ADD COLUMN IF NOT EXISTS fecha_compra DATE;
+ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS ot_id        UUID REFERENCES ordenes_trabajo(id) ON DELETE SET NULL;
+
+-- ── HISTORIAL DE PRECIOS DE COMPRA ───────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS historial_precios_compra (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  empresa_id  UUID NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+  producto_id UUID NOT NULL REFERENCES productos(id) ON DELETE CASCADE,
+  precio      NUMERIC(12,2) NOT NULL,
+  proveedor   VARCHAR(200),
+  fecha       DATE NOT NULL DEFAULT CURRENT_DATE,
+  notas       TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_hist_precios_producto ON historial_precios_compra(producto_id);
+CREATE INDEX IF NOT EXISTS idx_hist_precios_empresa  ON historial_precios_compra(empresa_id);

@@ -82,6 +82,7 @@
       <div class="flex gap-8">
         <button class="btn btn-secondary" id="btn-vista-lista" onclick="setVista('lista')">☰ Lista</button>
         <button class="btn btn-secondary active" id="btn-vista-kanban" onclick="setVista('kanban')">⬛ Kanban</button>
+        <button class="btn btn-secondary" id="btn-historial-serie" onclick="abrirHistorialSerie()">🔍 Historial por serie</button>
         <button class="btn btn-primary" id="btn-nueva">+ Nueva OT</button>
       </div>
     </div>
@@ -202,6 +203,12 @@
   <div style="display:flex;flex-direction:column;gap:8px;margin-top:auto;padding-top:.5rem">
     <button class="btn btn-secondary" id="det-btn-pieza" onclick="abrirSolicitarPieza()">
       🔧 Solicitar pieza faltante
+    </button>
+    <button class="btn btn-secondary" id="det-btn-whatsapp" onclick="notificarClienteWA()" style="display:none">
+      📱 Notificar cliente por WhatsApp
+    </button>
+    <button class="btn btn-secondary" id="det-btn-cotizacion" onclick="generarCotizacionDesdeOT()">
+      📋 Generar cotización
     </button>
     <div class="flex gap-8">
       <button class="btn btn-primary" style="flex:1" id="det-btn-factura" onclick="facturarOT()">
@@ -341,6 +348,25 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-pieza')">Cancelar</button>
       <button class="btn btn-primary" id="btn-enviar-solicitud">Enviar solicitud</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal historial por número de serie ──────────────────────────────────── -->
+<div class="modal-overlay" id="modal-historial-serie">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header">
+      <span class="modal-title">🔍 Historial por número de serie</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modal-historial-serie')">✕</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:1rem">
+      <input class="form-input" id="inp-serie-buscar" placeholder="Ej. SN-00123, CH-4521..." style="flex:1"/>
+      <button class="btn btn-primary" id="btn-buscar-serie">Buscar</button>
+    </div>
+    <div id="historial-serie-resultado">
+      <div style="text-align:center;color:var(--color-text-muted);padding:2rem;font-size:13px">
+        Escribe un número de serie y presiona Buscar
+      </div>
     </div>
   </div>
 </div>
@@ -550,10 +576,25 @@ async function verDetalle(id) {
       alertasWrap.style.display = 'none';
     }
 
+    // Botón WhatsApp: visible si terminada/entregada y el cliente tiene teléfono
+    const btnWA = document.getElementById('det-btn-whatsapp');
+    const mostrarWA = (o.estado === 'terminada' || o.estado === 'entregada') && o.cliente_telefono;
+    btnWA.style.display = mostrarWA ? 'block' : 'none';
+
     Permisos.aplicar();
     document.getElementById('det-overlay').classList.add('open');
     document.getElementById('det-panel').classList.add('open');
   } catch(err) { showToast(err.message, 'error'); }
+}
+
+function notificarClienteWA() {
+  if (!otActual) return;
+  const o   = otActual;
+  const tel = (o.cliente_telefono || '').replace(/\D/g, '');
+  const num = tel.startsWith('52') ? tel : '52' + tel;
+  const otNum = String(o.numero).padStart(4, '0');
+  const msg = `Hola ${o.cliente_nombre}, te informamos que tu equipo *${o.equipo || 'ingresado a taller'}* (OT #${otNum}) ya está listo para recoger. ✅\n\nSi tienes alguna duda, con gusto te atendemos.`;
+  window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
 function cerrarDetalle() {
@@ -752,6 +793,76 @@ document.getElementById('btn-guardar-ot').addEventListener('click', async () => 
     loadOTs();
   } catch(err) { showToast(err.message, 'error'); }
 });
+
+// ── Historial por número de serie ─────────────────────────────────────────────
+function abrirHistorialSerie() {
+  document.getElementById('inp-serie-buscar').value = '';
+  document.getElementById('historial-serie-resultado').innerHTML =
+    '<div style="text-align:center;color:var(--color-text-muted);padding:2rem;font-size:13px">Escribe un número de serie y presiona Buscar</div>';
+  openModal('modal-historial-serie');
+}
+
+document.getElementById('btn-buscar-serie').addEventListener('click', buscarHistorialSerie);
+document.getElementById('inp-serie-buscar').addEventListener('keydown', e => {
+  if (e.key === 'Enter') buscarHistorialSerie();
+});
+
+async function buscarHistorialSerie() {
+  const serie = document.getElementById('inp-serie-buscar').value.trim();
+  if (!serie) return showToast('Escribe un número de serie', 'error');
+  const resEl = document.getElementById('historial-serie-resultado');
+  resEl.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--color-text-muted)">Buscando...</div>';
+  try {
+    const lista = await api.ordenes.historialSerie(serie);
+    if (!lista.length) {
+      resEl.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--color-text-muted);font-size:13px">No se encontraron OTs con serie "<strong>${serie}</strong>"</div>`;
+      return;
+    }
+    resEl.innerHTML = `
+      <div style="font-size:12px;color:var(--color-text-muted);margin-bottom:8px">${lista.length} entrada(s) encontrada(s)</div>
+      ${lista.map(o => `
+        <div style="border:1px solid var(--color-border);border-radius:var(--radius-md);padding:12px;margin-bottom:8px;cursor:pointer"
+             onclick="closeModal('modal-historial-serie');verDetalle('${o.id}')">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <span style="font-size:11px;font-weight:600;color:var(--color-text-hint)">#${String(o.numero).padStart(4,'0')}</span>
+              <span style="font-size:13px;font-weight:500;margin-left:8px">${o.equipo || '—'}</span>
+            </div>
+            ${estadoBadge(o.estado)}
+          </div>
+          <div style="font-size:12px;color:var(--color-text-muted);margin-top:4px">
+            👤 ${o.cliente_nombre} · 📅 ${formatDate(o.created_at)} · ${formatMoney(o.total)}
+          </div>
+          <div style="font-size:11px;color:var(--color-text-hint);margin-top:3px">${o.descripcion?.slice(0,80) || ''}</div>
+        </div>`).join('')}`;
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+// ── Generar cotización desde OT ───────────────────────────────────────────────
+async function generarCotizacionDesdeOT() {
+  if (!otActual) return;
+  const items = (otActual.items || [])
+    .filter(i => i.tipo !== 'consumible')
+    .map(i => ({
+      descripcion:     i.descripcion,
+      cantidad:        i.cantidad,
+      precio_unitario: i.precio_unit,
+    }));
+
+  if (!items.length) return showToast('No hay conceptos facturables en esta OT', 'error');
+
+  const otNum = String(otActual.numero).padStart(4, '0');
+  try {
+    await api.cotizaciones.create({
+      cliente_id: otActual.cliente_id,
+      items,
+      ot_id: otActual.id,
+      notas: `Cotización para OT #${otNum} — ${otActual.equipo || 'equipo en reparación'}`,
+    });
+    showToast(`✅ Cotización generada desde OT #${otNum}`);
+    cerrarDetalle();
+  } catch(err) { showToast(err.message, 'error'); }
+}
 
 loadOTs();
 </script>
