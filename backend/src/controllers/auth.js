@@ -21,33 +21,44 @@ async function register(req, res, next) {
       return res.status(409).json({ error: 'El correo ya está registrado' });
     }
 
-    // Crear empresa
     const trial_hasta = new Date();
     trial_hasta.setDate(trial_hasta.getDate() + 30);
 
-    const empRes = await db.query(
-      `INSERT INTO empresas (nombre, plan, trial_hasta)
-       VALUES ($1, 'trial', $2) RETURNING *`,
-      [empresa, trial_hasta]
-    );
-    const emp = empRes.rows[0];
-
-    // Crear usuario admin
+    // Hash antes de abrir la transacción para no tenerla abierta más de lo necesario
     const hash = await bcrypt.hash(password, 12);
-    const userRes = await db.query(
-      `INSERT INTO usuarios (empresa_id, nombre, email, password_hash, rol)
-       VALUES ($1, $2, $3, $4, 'admin') RETURNING id, nombre, email, rol, onboarding_ok`,
-      [emp.id, nombre, email, hash]
-    );
 
-    const user  = userRes.rows[0];
-    const token = signToken(user, emp.id);
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
 
-    res.status(201).json({
-      token,
-      user: { ...user, empresa_id: emp.id, empresa_nombre: emp.nombre },
-      empresa: emp,
-    });
+      const empRes = await client.query(
+        `INSERT INTO empresas (nombre, plan, trial_hasta) VALUES ($1, 'trial', $2) RETURNING *`,
+        [empresa, trial_hasta]
+      );
+      const emp = empRes.rows[0];
+
+      const userRes = await client.query(
+        `INSERT INTO usuarios (empresa_id, nombre, email, password_hash, rol)
+         VALUES ($1, $2, $3, $4, 'admin') RETURNING id, nombre, email, rol, onboarding_ok`,
+        [emp.id, nombre, email, hash]
+      );
+
+      await client.query('COMMIT');
+
+      const user  = userRes.rows[0];
+      const token = signToken(user, emp.id);
+
+      res.status(201).json({
+        token,
+        user: { ...user, empresa_id: emp.id, empresa_nombre: emp.nombre },
+        empresa: emp,
+      });
+    } catch (innerErr) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw innerErr;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     next(err);
   }

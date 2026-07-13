@@ -48,6 +48,12 @@ async function create(req, res, next) {
       return res.status(400).json({ error: 'cliente_id e items son requeridos' });
     }
 
+    const clienteCheck = await db.query(
+      'SELECT id FROM clientes WHERE id = $1 AND empresa_id = $2',
+      [cliente_id, req.user.empresa_id]
+    );
+    if (!clienteCheck.rows[0]) return res.status(400).json({ error: 'Cliente no válido' });
+
     const subtotal = items.reduce((s, i) => s + (i.cantidad * i.precio_unit), 0);
     const impuestos = subtotal * 0.16; // IVA 16%
     const total = subtotal + impuestos;
@@ -66,8 +72,11 @@ async function timbrar(req, res, next) {
   try {
     const factura = await db.query(
       `SELECT f.*, c.rfc AS cliente_rfc, c.nombre AS cliente_nombre,
-              c.regimen_fiscal AS cliente_regimen, c.uso_cfdi, c.cp AS cliente_cp
-       FROM facturas f JOIN clientes c ON c.id = f.cliente_id
+              c.regimen_fiscal AS cliente_regimen, c.uso_cfdi,
+              e.cp AS empresa_cp
+       FROM facturas f
+       JOIN clientes c ON c.id = f.cliente_id
+       JOIN empresas  e ON e.id = f.empresa_id
        WHERE f.id = $1 AND f.empresa_id = $2`,
       [req.params.id, req.user.empresa_id]
     );
@@ -86,7 +95,7 @@ async function timbrar(req, res, next) {
         legal_name:      f.cliente_nombre,
         tax_id:          f.cliente_rfc,
         tax_system:      f.cliente_regimen || '626',
-        address: { zip: f.cliente_cp || '64000' },
+        address: { zip: f.empresa_cp || '64000' },
       },
       use:   f.uso_cfdi || 'G03',
       items: f.items.map(item => ({
@@ -146,8 +155,10 @@ async function cancelar(req, res, next) {
     await log(req, 'cancelar_factura', 'factura', req.params.id, { motivo });
     res.json({ message: 'Factura cancelada' });
   } catch (err) {
+    if (err.status) return next(err);          // errores propios (getFacturapiClient, etc.)
+    if (!err.response) return next(err);       // errores de DB → 500 por defecto
     const msg = err.response?.data?.message || err.message;
-    next(Object.assign(new Error(`Error cancelación: ${msg}`), { status: 422 }));
+    next(Object.assign(new Error(`Error cancelación SAT: ${msg}`), { status: 422 }));
   }
 }
 

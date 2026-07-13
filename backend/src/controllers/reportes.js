@@ -67,21 +67,17 @@ async function clientesTop(req, res, next) {
 // GET /api/reportes/cxc-vencidas
 async function cxcVencidas(req, res, next) {
   try {
-    // Actualizar estado automáticamente antes de retornar
-    await db.query(
-      `UPDATE cuentas_por_cobrar SET estado = 'vencida'
-       WHERE empresa_id = $1 AND estado IN ('pendiente','parcial')
-         AND fecha_vence < CURRENT_DATE`,
-      [req.user.empresa_id]
-    );
-
+    // Calcula vencidas on-the-fly sin modificar estado en DB
+    // (la actualización de estado se hace al cobrar o desde CxC directamente)
     const result = await db.query(
       `SELECT cxc.*, c.nombre AS cliente_nombre, c.telefono AS cliente_tel,
               CURRENT_DATE - cxc.fecha_vence AS dias_vencida
        FROM cuentas_por_cobrar cxc
        JOIN clientes c ON c.id = cxc.cliente_id
-       WHERE cxc.empresa_id = $1 AND cxc.estado = 'vencida'
-       ORDER BY dias_vencida DESC`,
+       WHERE cxc.empresa_id = $1
+         AND (cxc.estado = 'vencida'
+              OR (cxc.estado IN ('pendiente','parcial') AND cxc.fecha_vence < CURRENT_DATE))
+       ORDER BY (CURRENT_DATE - cxc.fecha_vence) DESC`,
       [req.user.empresa_id]
     );
     res.json(result.rows);

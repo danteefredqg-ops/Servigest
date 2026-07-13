@@ -24,6 +24,12 @@ async function create(req, res, next) {
       return res.status(400).json({ error: 'cliente_id, descripcion y meses son requeridos' });
     }
 
+    const clienteCheck = await db.query(
+      'SELECT id FROM clientes WHERE id = $1 AND empresa_id = $2',
+      [cliente_id, req.user.empresa_id]
+    );
+    if (!clienteCheck.rows[0]) return res.status(400).json({ error: 'Cliente no válido' });
+
     const fecha_ini = fecha_inicio || new Date().toISOString().split('T')[0];
     const fechaFin  = new Date(fecha_ini);
     fechaFin.setMonth(fechaFin.getMonth() + parseInt(meses));

@@ -98,6 +98,12 @@ async function create(req, res, next) {
       return res.status(400).json({ error: 'cliente_id y descripcion son requeridos' });
     }
 
+    const clienteCheck = await db.query(
+      'SELECT id FROM clientes WHERE id = $1 AND empresa_id = $2',
+      [cliente_id, req.user.empresa_id]
+    );
+    if (!clienteCheck.rows[0]) return res.status(400).json({ error: 'Cliente no válido' });
+
     await client.query('BEGIN');
 
     // Calcular totales — consumibles NO se facturan al cliente
@@ -127,11 +133,21 @@ async function create(req, res, next) {
     );
     const ot = otRes.rows[0];
 
-    // Insertar items y verificar stock
+    // Insertar items y verificar/descontar stock
     for (const item of itemsProc) {
-      // Verificar si hay stock disponible
       let disponible = true;
-      if (item.producto_id && item.tipo !== 'mano_obra') {
+
+      if (item.producto_id && item.tipo === 'refaccion') {
+        // UPDATE condicional atómico: descuenta solo si hay stock suficiente
+        const stockRes = await client.query(
+          `UPDATE productos SET stock = stock - $1
+           WHERE id = $2 AND empresa_id = $3 AND stock >= $1
+           RETURNING stock`,
+          [item.cantidad, item.producto_id, req.user.empresa_id]
+        );
+        disponible = stockRes.rowCount > 0;
+      } else if (item.producto_id && item.tipo === 'consumible') {
+        // Consumibles: verificar existencia sin descontar (costo interno)
         const prod = await client.query(
           'SELECT stock FROM productos WHERE id = $1 AND empresa_id = $2',
           [item.producto_id, req.user.empresa_id]
@@ -148,14 +164,6 @@ async function create(req, res, next) {
          item.descripcion, item.cantidad, item.precio_unit,
          item.costo_unit, item.subtotal, item.facturar, disponible]
       );
-
-      // Si es refacción disponible, descontar stock
-      if (item.producto_id && disponible && item.tipo === 'refaccion') {
-        await client.query(
-          'UPDATE productos SET stock = stock - $1 WHERE id = $2 AND empresa_id = $3',
-          [item.cantidad, item.producto_id, req.user.empresa_id]
-        );
-      }
     }
 
     // Crear alerta si hay items sin stock
@@ -193,14 +201,17 @@ async function cambiarEstado(req, res, next) {
       return res.status(400).json({ error: 'Estado inválido' });
     }
 
+    await client.query('BEGIN');
+
     const otRes = await client.query(
       'SELECT * FROM ordenes_trabajo WHERE id = $1 AND empresa_id = $2',
       [req.params.id, req.user.empresa_id]
     );
-    if (!otRes.rows[0]) return res.status(404).json({ error: 'Orden no encontrada' });
+    if (!otRes.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Orden no encontrada' });
+    }
     const ot = otRes.rows[0];
-
-    await client.query('BEGIN');
 
     await client.query(
       `UPDATE ordenes_trabajo
@@ -292,10 +303,16 @@ async function marcarPiezaDisponible(req, res, next) {
 
     await client.query('BEGIN');
 
-    // Marcar item como disponible
+    // Marcar item como disponible — verifica que pertenezca a esta OT y empresa
     const itemRes = await client.query(
-      `UPDATE ot_items SET disponible = true WHERE id = $1 RETURNING *`,
-      [item_id]
+      `UPDATE ot_items oi SET disponible = true
+       FROM ordenes_trabajo ot
+       WHERE oi.id = $1
+         AND oi.ot_id = $2
+         AND ot.id = oi.ot_id
+         AND ot.empresa_id = $3
+       RETURNING oi.*`,
+      [item_id, req.params.id, req.user.empresa_id]
     );
     if (!itemRes.rows[0]) return res.status(404).json({ error: 'Item no encontrado' });
 

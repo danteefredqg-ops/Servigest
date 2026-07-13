@@ -49,23 +49,30 @@ async function create(req, res, next) {
       return res.status(400).json({ error: 'cliente_id e items son requeridos' });
     }
 
-    // Calcular total desde los items para no confiar en el cliente
-    const total = items.reduce((sum, item) => {
-      return sum + (Number(item.cantidad) * Number(item.precio_unitario));
-    }, 0);
+    const clienteCheck = await db.query(
+      'SELECT id FROM clientes WHERE id = $1 AND empresa_id = $2',
+      [cliente_id, req.user.empresa_id]
+    );
+    if (!clienteCheck.rows[0]) return res.status(400).json({ error: 'Cliente no válido' });
 
+    // Calcular totales desde los items (no confiar en el cliente)
     const itemsConSubtotal = items.map(item => ({
       ...item,
       subtotal: Number(item.cantidad) * Number(item.precio_unitario),
     }));
 
+    const subtotal  = itemsConSubtotal.reduce((s, i) => s + i.subtotal, 0);
+    const impuestos = subtotal * 0.16;
+    const total     = subtotal + impuestos;
+
     const { ot_id, notas, valida_hasta } = req.body;
 
     const result = await db.query(
-      `INSERT INTO cotizaciones (cliente_id, items, total, empresa_id, ot_id, notas, valida_hasta)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [cliente_id, JSON.stringify(itemsConSubtotal), total, req.user.empresa_id,
-       ot_id || null, notas || null, valida_hasta || null]
+      `INSERT INTO cotizaciones
+         (cliente_id, items, subtotal, impuestos, total, empresa_id, ot_id, notas, valida_hasta)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [cliente_id, JSON.stringify(itemsConSubtotal), subtotal, impuestos, total,
+       req.user.empresa_id, ot_id || null, notas || null, valida_hasta || null]
     );
 
     res.status(201).json(result.rows[0]);

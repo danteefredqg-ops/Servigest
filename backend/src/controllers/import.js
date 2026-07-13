@@ -1,10 +1,7 @@
 // import.js — Importación masiva desde Excel
-// Permite migrar clientes y productos desde planillas de Excel
+const XLSX = require('xlsx');
+const db   = require('../db/connection');
 
-const XLSX    = require('xlsx');
-const db      = require('../db/connection');
-
-// Parsea el Excel y devuelve filas como JSON
 function parseExcel(buffer, sheetName) {
   const wb    = XLSX.read(buffer, { type: 'buffer' });
   const sheet = wb.Sheets[sheetName] || wb.Sheets[wb.SheetNames[0]];
@@ -12,7 +9,6 @@ function parseExcel(buffer, sheetName) {
 }
 
 // POST /api/import/clientes
-// Espera un Excel con columnas: nombre, telefono, email, direccion, rfc
 async function importClientes(req, res, next) {
   try {
     if (!req.file) return res.status(400).json({ error: 'Archivo requerido' });
@@ -20,7 +16,7 @@ async function importClientes(req, res, next) {
     const rows = parseExcel(req.file.buffer, 'Clientes');
     if (!rows.length) return res.status(400).json({ error: 'El archivo está vacío' });
 
-    const resultados = { importados: 0, errores: [] };
+    const resultados = { importados: 0, omitidos: 0, errores: [] };
 
     for (const [i, row] of rows.entries()) {
       const nombre = String(row.nombre || row.Nombre || '').trim();
@@ -30,10 +26,19 @@ async function importClientes(req, res, next) {
       }
 
       try {
+        // Verificar duplicado por nombre (case-insensitive)
+        const existe = await db.query(
+          'SELECT id FROM clientes WHERE empresa_id = $1 AND LOWER(nombre) = LOWER($2)',
+          [req.user.empresa_id, nombre]
+        );
+        if (existe.rows[0]) {
+          resultados.omitidos++;
+          continue;
+        }
+
         await db.query(
           `INSERT INTO clientes (empresa_id, nombre, telefono, email, direccion, rfc)
-           VALUES ($1,$2,$3,$4,$5,$6)
-           ON CONFLICT DO NOTHING`,
+           VALUES ($1,$2,$3,$4,$5,$6)`,
           [
             req.user.empresa_id,
             nombre,
@@ -50,14 +55,13 @@ async function importClientes(req, res, next) {
     }
 
     res.json({
-      message: `${resultados.importados} clientes importados`,
+      message: `${resultados.importados} clientes importados, ${resultados.omitidos} omitidos (ya existían)`,
       ...resultados,
     });
   } catch (err) { next(err); }
 }
 
 // POST /api/import/productos
-// Columnas: nombre, descripcion, sku, unidad, precio, costo, stock, stock_minimo
 async function importProductos(req, res, next) {
   try {
     if (!req.file) return res.status(400).json({ error: 'Archivo requerido' });
@@ -65,25 +69,35 @@ async function importProductos(req, res, next) {
     const rows = parseExcel(req.file.buffer, 'Productos');
     if (!rows.length) return res.status(400).json({ error: 'El archivo está vacío' });
 
-    const resultados = { importados: 0, errores: [] };
+    const resultados = { importados: 0, omitidos: 0, errores: [] };
 
     for (const [i, row] of rows.entries()) {
       const nombre = String(row.nombre || row.Nombre || '').trim();
+      const sku    = String(row.sku    || row.SKU    || '').trim() || null;
       if (!nombre) {
         resultados.errores.push({ fila: i + 2, error: 'Nombre vacío' });
         continue;
       }
 
       try {
+        // Verificar duplicado por SKU (si hay) o por nombre
+        const existe = sku
+          ? await db.query('SELECT id FROM productos WHERE empresa_id = $1 AND sku = $2', [req.user.empresa_id, sku])
+          : await db.query('SELECT id FROM productos WHERE empresa_id = $1 AND LOWER(nombre) = LOWER($2)', [req.user.empresa_id, nombre]);
+
+        if (existe.rows[0]) {
+          resultados.omitidos++;
+          continue;
+        }
+
         await db.query(
           `INSERT INTO productos (empresa_id, nombre, descripcion, sku, unidad, precio, costo, stock, stock_minimo)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-           ON CONFLICT DO NOTHING`,
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
           [
             req.user.empresa_id,
             nombre,
             String(row.descripcion || '').trim() || null,
-            String(row.sku         || '').trim() || null,
+            sku,
             String(row.unidad      || 'servicio').trim(),
             parseFloat(row.precio  || 0),
             parseFloat(row.costo   || 0),
@@ -98,13 +112,13 @@ async function importProductos(req, res, next) {
     }
 
     res.json({
-      message: `${resultados.importados} productos importados`,
+      message: `${resultados.importados} productos importados, ${resultados.omitidos} omitidos (ya existían)`,
       ...resultados,
     });
   } catch (err) { next(err); }
 }
 
-// GET /api/import/plantilla/:tipo — descarga plantilla Excel vacía
+// GET /api/import/plantilla/:tipo
 async function plantilla(req, res, next) {
   try {
     const tipo = req.params.tipo;
@@ -120,7 +134,6 @@ async function plantilla(req, res, next) {
     XLSX.utils.book_append_sheet(wb, ws, tipo.charAt(0).toUpperCase() + tipo.slice(1));
 
     const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="plantilla_${tipo}.xlsx"`);
     res.send(buffer);

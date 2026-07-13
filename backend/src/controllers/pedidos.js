@@ -75,6 +75,12 @@ async function create(req, res, next) {
     if (!cliente_id) return res.status(400).json({ error: 'cliente_id es requerido' });
     if (!items.length) return res.status(400).json({ error: 'Agrega al menos un producto o servicio' });
 
+    const clienteCheck = await db.query(
+      'SELECT id FROM clientes WHERE id = $1 AND empresa_id = $2',
+      [cliente_id, req.user.empresa_id]
+    );
+    if (!clienteCheck.rows[0]) return res.status(400).json({ error: 'Cliente no válido' });
+
     await client.query('BEGIN');
 
     // Calcular totales desde los items

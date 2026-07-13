@@ -104,10 +104,14 @@ function showToast(message, type = 'success') {
 
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
-  toast.innerHTML = `
-    <span>${message}</span>
-    <button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:16px;margin-left:10px;opacity:.7">✕</button>
-  `;
+  const msgSpan = document.createElement('span');
+  msgSpan.textContent = message; // textContent evita XSS con mensajes de la API
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕';
+  closeBtn.style.cssText = 'background:none;border:none;color:inherit;cursor:pointer;font-size:16px;margin-left:10px;opacity:.7';
+  closeBtn.onclick = () => toast.remove();
+  toast.appendChild(msgSpan);
+  toast.appendChild(closeBtn);
   toast.style.cssText = `
     display:flex; align-items:center; justify-content:space-between;
     padding:12px 16px; border-radius:8px; font-size:13px; font-weight:500;

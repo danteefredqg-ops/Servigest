@@ -37,7 +37,7 @@ const api = {
       throw new Error('No se pudo conectar al servidor. Verifica tu internet.');
     }
 
-    if (res.status === 401) {
+    if (res.status === 401 && !endpoint.includes('/auth/')) {
       this.logout();
       return;
     }

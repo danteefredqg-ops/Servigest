@@ -27,23 +27,37 @@ async function create(req, res, next) {
 }
 
 async function updateEstado(req, res, next) {
+  const client = await db.connect();
   try {
     const { estado } = req.body;
-    const validos = ['pendiente','recibida','cancelada'];
+    const validos = ['pendiente', 'recibida', 'cancelada'];
     if (!validos.includes(estado)) return res.status(400).json({ error: 'Estado inválido' });
 
-    const result = await db.query(
-      'UPDATE compras SET estado = $1 WHERE id = $2 AND empresa_id = $3 RETURNING *',
+    await client.query('BEGIN');
+
+    // AND estado != $1 garantiza idempotencia: si ya tiene ese estado no toca el stock
+    const result = await client.query(
+      `UPDATE compras SET estado = $1
+       WHERE id = $2 AND empresa_id = $3 AND estado != $1
+       RETURNING *`,
       [estado, req.params.id, req.user.empresa_id]
     );
-    if (!result.rows[0]) return res.status(404).json({ error: 'Compra no encontrada' });
 
-    // Si se recibió, actualizar stock de productos relacionados
+    if (!result.rows[0]) {
+      await client.query('ROLLBACK');
+      // Distinguir "no existe" de "ya tenía ese estado"
+      const existe = await db.query(
+        'SELECT estado FROM compras WHERE id = $1 AND empresa_id = $2',
+        [req.params.id, req.user.empresa_id]
+      );
+      if (!existe.rows[0]) return res.status(404).json({ error: 'Compra no encontrada' });
+      return res.json(existe.rows[0]); // ya tenía ese estado, sin cambios
+    }
+
     if (estado === 'recibida') {
-      const compra = result.rows[0];
-      for (const item of compra.items) {
+      for (const item of result.rows[0].items) {
         if (item.producto_id) {
-          await db.query(
+          await client.query(
             'UPDATE productos SET stock = stock + $1 WHERE id = $2 AND empresa_id = $3',
             [item.cantidad, item.producto_id, req.user.empresa_id]
           );
@@ -51,8 +65,14 @@ async function updateEstado(req, res, next) {
       }
     }
 
+    await client.query('COMMIT');
     res.json(result.rows[0]);
-  } catch (err) { next(err); }
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    next(err);
+  } finally {
+    client.release();
+  }
 }
 
 module.exports = { getAll, create, updateEstado };

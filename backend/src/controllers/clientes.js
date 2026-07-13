@@ -7,7 +7,7 @@ async function getAll(req, res, next) {
               COUNT(p.id) AS total_pedidos,
               COALESCE(SUM(p.total) FILTER (WHERE p.estado = 'entregado'), 0) AS total_facturado
        FROM clientes c
-       LEFT JOIN pedidos p ON p.cliente_id = c.id
+       LEFT JOIN pedidos p ON p.cliente_id = c.id AND p.empresa_id = c.empresa_id
        WHERE c.empresa_id = $1
        GROUP BY c.id
        ORDER BY c.nombre ASC`,
@@ -31,13 +31,13 @@ async function getById(req, res, next) {
       return res.status(404).json({ error: 'Cliente no encontrado' });
     }
 
-    // Últimos pedidos del cliente
+    // Últimos pedidos del cliente (filtrado por empresa para seguridad)
     const pedidos = await db.query(
       `SELECT p.*
        FROM pedidos p
-       WHERE p.cliente_id = $1
+       WHERE p.cliente_id = $1 AND p.empresa_id = $2
        ORDER BY p.created_at DESC LIMIT 10`,
-      [req.params.id]
+      [req.params.id, req.user.empresa_id]
     );
 
     res.json({ ...cliente.rows[0], pedidos: pedidos.rows });
