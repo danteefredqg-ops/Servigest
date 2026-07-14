@@ -1,11 +1,29 @@
-// import.js — Importación masiva desde Excel
+// import.js — Importación masiva desde Excel / CSV con mapeador de columnas
 const XLSX = require('xlsx');
 const db   = require('../db/connection');
 
-function parseExcel(buffer, sheetName) {
-  const wb    = XLSX.read(buffer, { type: 'buffer' });
-  const sheet = wb.Sheets[sheetName] || wb.Sheets[wb.SheetNames[0]];
+function parseFile(buffer) {
+  const wb    = XLSX.read(buffer, { type: 'buffer', codepage: 65001 });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
   return XLSX.utils.sheet_to_json(sheet, { defval: '' });
+}
+
+// Extrae un campo usando el mapping (si existe) o el nombre exacto/capitalizado
+function getVal(row, field, map) {
+  if (map && map[field]) return String(row[map[field]] ?? '').trim();
+  const cap = field.charAt(0).toUpperCase() + field.slice(1);
+  return String(row[field] || row[cap] || '').trim();
+}
+
+// POST /api/import/preview — devuelve columnas + muestra sin importar nada
+async function preview(req, res, next) {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Archivo requerido' });
+    const rows = parseFile(req.file.buffer);
+    if (!rows.length) return res.status(400).json({ error: 'El archivo está vacío o no tiene datos' });
+    const columns = Object.keys(rows[0]);
+    res.json({ columns, sample: rows.slice(0, 5), total: rows.length });
+  } catch (err) { next(err); }
 }
 
 // POST /api/import/clientes
@@ -13,28 +31,25 @@ async function importClientes(req, res, next) {
   try {
     if (!req.file) return res.status(400).json({ error: 'Archivo requerido' });
 
-    const rows = parseExcel(req.file.buffer, 'Clientes');
+    const rows = parseFile(req.file.buffer);
     if (!rows.length) return res.status(400).json({ error: 'El archivo está vacío' });
 
+    const map = req.body.mapping ? JSON.parse(req.body.mapping) : null;
     const resultados = { importados: 0, omitidos: 0, errores: [] };
 
     for (const [i, row] of rows.entries()) {
-      const nombre = String(row.nombre || row.Nombre || '').trim();
+      const nombre = getVal(row, 'nombre', map);
       if (!nombre) {
         resultados.errores.push({ fila: i + 2, error: 'Nombre vacío' });
         continue;
       }
 
       try {
-        // Verificar duplicado por nombre (case-insensitive)
         const existe = await db.query(
           'SELECT id FROM clientes WHERE empresa_id = $1 AND LOWER(nombre) = LOWER($2)',
           [req.user.empresa_id, nombre]
         );
-        if (existe.rows[0]) {
-          resultados.omitidos++;
-          continue;
-        }
+        if (existe.rows[0]) { resultados.omitidos++; continue; }
 
         await db.query(
           `INSERT INTO clientes (empresa_id, nombre, telefono, email, direccion, rfc)
@@ -42,10 +57,10 @@ async function importClientes(req, res, next) {
           [
             req.user.empresa_id,
             nombre,
-            String(row.telefono || row.Telefono || '').trim() || null,
-            String(row.email    || row.Email    || '').trim() || null,
-            String(row.direccion|| row.Direccion|| '').trim() || null,
-            String(row.rfc      || row.RFC      || '').trim() || null,
+            getVal(row, 'telefono',  map) || null,
+            getVal(row, 'email',     map) || null,
+            getVal(row, 'direccion', map) || null,
+            getVal(row, 'rfc',       map) || null,
           ]
         );
         resultados.importados++;
@@ -66,44 +81,38 @@ async function importProductos(req, res, next) {
   try {
     if (!req.file) return res.status(400).json({ error: 'Archivo requerido' });
 
-    const rows = parseExcel(req.file.buffer, 'Productos');
+    const rows = parseFile(req.file.buffer);
     if (!rows.length) return res.status(400).json({ error: 'El archivo está vacío' });
 
+    const map = req.body.mapping ? JSON.parse(req.body.mapping) : null;
     const resultados = { importados: 0, omitidos: 0, errores: [] };
 
     for (const [i, row] of rows.entries()) {
-      const nombre = String(row.nombre || row.Nombre || '').trim();
-      const sku    = String(row.sku    || row.SKU    || '').trim() || null;
+      const nombre = getVal(row, 'nombre', map);
+      const sku    = getVal(row, 'sku', map) || null;
       if (!nombre) {
         resultados.errores.push({ fila: i + 2, error: 'Nombre vacío' });
         continue;
       }
 
       try {
-        // Verificar duplicado por SKU (si hay) o por nombre
         const existe = sku
           ? await db.query('SELECT id FROM productos WHERE empresa_id = $1 AND sku = $2', [req.user.empresa_id, sku])
           : await db.query('SELECT id FROM productos WHERE empresa_id = $1 AND LOWER(nombre) = LOWER($2)', [req.user.empresa_id, nombre]);
 
-        if (existe.rows[0]) {
-          resultados.omitidos++;
-          continue;
-        }
+        if (existe.rows[0]) { resultados.omitidos++; continue; }
+
+        const precio = parseFloat(getVal(row, 'precio', map)) || 0;
+        const costo  = parseFloat(getVal(row, 'costo',  map)) || 0;
+        const stock  = parseInt(getVal(row,   'stock',  map)) || 0;
+        const sMin   = parseInt(getVal(row,   'stock_minimo', map)) || 0;
+        const unidad = getVal(row, 'unidad', map) || 'pieza';
+        const desc   = getVal(row, 'descripcion', map) || null;
 
         await db.query(
           `INSERT INTO productos (empresa_id, nombre, descripcion, sku, unidad, precio, costo, stock, stock_minimo)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-          [
-            req.user.empresa_id,
-            nombre,
-            String(row.descripcion || '').trim() || null,
-            sku,
-            String(row.unidad      || 'servicio').trim(),
-            parseFloat(row.precio  || 0),
-            parseFloat(row.costo   || 0),
-            parseInt(row.stock     || 0),
-            parseInt(row.stock_minimo || 0),
-          ]
+          [req.user.empresa_id, nombre, desc, sku, unidad, precio, costo, stock, sMin]
         );
         resultados.importados++;
       } catch (err) {
@@ -140,4 +149,4 @@ async function plantilla(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { importClientes, importProductos, plantilla };
+module.exports = { preview, importClientes, importProductos, plantilla };

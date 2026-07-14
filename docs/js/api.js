@@ -207,6 +207,10 @@ const api = {
   import: {
     clientes:  (file) => { const fd=new FormData(); fd.append('archivo',file); return api.upload('/import/clientes', fd); },
     productos: (file) => { const fd=new FormData(); fd.append('archivo',file); return api.upload('/import/productos', fd); },
+    // Con mapeador de columnas personalizado
+    clientesMapeados:  (file, mapping) => { const fd=new FormData(); fd.append('archivo',file); fd.append('mapping',JSON.stringify(mapping)); return api.upload('/import/clientes',  fd); },
+    productosMapeados: (file, mapping) => { const fd=new FormData(); fd.append('archivo',file); fd.append('mapping',JSON.stringify(mapping)); return api.upload('/import/productos', fd); },
+    preview: (file) => { const fd=new FormData(); fd.append('archivo',file); return api.upload('/import/preview', fd); },
     plantilla: async (tipo) => {
       const blob = await api.get(`/import/plantilla/${tipo}`);
       descargarBlob(blob, `plantilla_${tipo}.xlsx`);

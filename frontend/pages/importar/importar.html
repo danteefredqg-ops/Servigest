@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ServiGest — Importar datos</title>
+  <link rel="stylesheet" href="../../css/base.css" />
+  <link rel="stylesheet" href="../../css/components.css" />
+  <style>
+    /* ── Wizard steps indicator ─────────────────────────────── */
+    .wizard-steps {
+      display: flex; align-items: center; gap: 0;
+      margin-bottom: 2rem; max-width: 500px;
+    }
+    .wstep {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--color-text-muted);
+    }
+    .wstep-num {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--color-bg-secondary); border: 2px solid var(--color-border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 600; flex-shrink: 0;
+    }
+    .wstep.active .wstep-num { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+    .wstep.done   .wstep-num { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+    .wstep.active { color: var(--color-text); font-weight: 500; }
+    .wstep-line { flex: 1; height: 2px; background: var(--color-border); margin: 0 8px; min-width: 40px; }
+    .wstep.done ~ .wstep-line, .wstep-line.done { background: var(--color-accent); }
+
+    /* ── Tipo selector ──────────────────────────────────────── */
+    .tipo-opts { display: flex; gap: 12px; margin-bottom: 1.5rem; }
+    .tipo-opt  { flex: 1; display: flex; align-items: center; gap: 10px; padding: 14px 16px;
+                 border: 2px solid var(--color-border); border-radius: var(--radius-md);
+                 cursor: pointer; transition: border-color .15s, background .15s; }
+    .tipo-opt.sel { border-color: var(--color-accent); background: var(--color-accent-light); }
+    .tipo-opt input { display: none; }
+    .tipo-icon { font-size: 22px; }
+    .tipo-label { font-size: 14px; font-weight: 500; }
+    .tipo-desc  { font-size: 12px; color: var(--color-text-muted); margin-top: 2px; }
+
+    /* ── Upload zone ────────────────────────────────────────── */
+    .upload-zone {
+      border: 2px dashed var(--color-border); border-radius: var(--radius-md);
+      padding: 2rem; text-align: center; cursor: pointer;
+      transition: border-color .15s, background .15s; margin-bottom: 1rem;
+    }
+    .upload-zone:hover, .upload-zone.drag { border-color: var(--color-accent); background: var(--color-accent-light); }
+    .upload-zone .uz-icon { font-size: 32px; margin-bottom: 8px; }
+    .upload-zone p { font-size: 13px; color: var(--color-text-muted); margin: 4px 0; }
+    .upload-zone strong { color: var(--color-text); }
+
+    /* ── Sample table ───────────────────────────────────────── */
+    .sample-wrap { overflow-x: auto; border: 1px solid var(--color-border); border-radius: var(--radius-md); margin-bottom: 1.5rem; }
+    .sample-table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+    .sample-table th { background: var(--color-bg-secondary); padding: 7px 12px; text-align: left; font-weight: 500; border-bottom: 1px solid var(--color-border); }
+    .sample-table td { padding: 6px 12px; border-bottom: 1px solid var(--color-border); color: var(--color-text-muted); }
+    .sample-table tr:last-child td { border-bottom: none; }
+
+    /* ── Mapping grid ───────────────────────────────────────── */
+    .map-grid { display: flex; flex-direction: column; gap: 10px; max-width: 560px; margin-bottom: 1.5rem; }
+    .map-row { display: grid; grid-template-columns: 180px 1fr; gap: 12px; align-items: center; }
+    .map-label { font-size: 13px; font-weight: 500; }
+    .map-label span { font-size: 11px; color: var(--color-accent); margin-left: 4px; }
+    .map-select { font-size: 13px; }
+
+    /* ── Resultado ──────────────────────────────────────────── */
+    .result-stat { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .stat-card   { flex: 1; min-width: 100px; border-radius: var(--radius-md); padding: 14px 16px; }
+    .stat-card .num  { font-size: 28px; font-weight: 700; }
+    .stat-card .lbl  { font-size: 12px; color: var(--color-text-muted); margin-top: 2px; }
+    .stat-green { background: rgba(15,110,86,.08); }
+    .stat-warn  { background: rgba(133,79,11,.08); }
+    .stat-red   { background: rgba(163,45,45,.08); }
+    .stat-green .num { color: #0F6E56; }
+    .stat-warn  .num { color: #854F0B; }
+    .stat-red   .num { color: #A32D2D; }
+
+    .error-list { font-size: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md); overflow: hidden; }
+    .error-list .err-row { padding: 6px 12px; border-bottom: 1px solid var(--color-border); color: #A32D2D; }
+    .error-list .err-row:last-child { border-bottom: none; }
+
+    /* ── Wizard panels ──────────────────────────────────────── */
+    .wiz-panel { display: none; } .wiz-panel.active { display: block; }
+    .wiz-card  { background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 1.75rem; max-width: 700px; }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="logo"><div class="logo-dot"></div>ServiGest</div>
+    <nav id="sidebar-nav"></nav>
+    <div class="sidebar-user">
+      <div class="user-avatar">--</div>
+      <div><div class="user-name">Cargando...</div><div class="user-empresa"></div></div>
+    </div>
+    <button id="btn-logout" class="btn btn-ghost btn-sm" style="margin-top:8px">Cerrar sesión</button>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Importar datos</h1>
+        <p class="page-subtitle">Sube tu archivo y mapea columnas — sin importar cómo se llamen</p>
+      </div>
+    </div>
+
+    <!-- Steps indicator -->
+    <div class="wizard-steps" id="wiz-steps">
+      <div class="wstep active" id="ws1"><div class="wstep-num">1</div> Archivo</div>
+      <div class="wstep-line"></div>
+      <div class="wstep" id="ws2"><div class="wstep-num">2</div> Columnas</div>
+      <div class="wstep-line"></div>
+      <div class="wstep" id="ws3"><div class="wstep-num">3</div> Resultado</div>
+    </div>
+
+    <!-- ── Paso 1: Tipo + archivo ── -->
+    <div class="wiz-panel active" id="step1">
+      <div class="wiz-card">
+        <h3 style="font-size:15px;font-weight:500;margin-bottom:1rem">¿Qué quieres importar?</h3>
+
+        <div class="tipo-opts" id="tipo-opts">
+          <label class="tipo-opt sel" id="opt-clientes">
+            <input type="radio" name="tipo" value="clientes" checked />
+            <span class="tipo-icon">👥</span>
+            <div>
+              <div class="tipo-label">Clientes</div>
+              <div class="tipo-desc">Nombre, teléfono, correo, RFC, dirección</div>
+            </div>
+          </label>
+          <label class="tipo-opt" id="opt-productos">
+            <input type="radio" name="tipo" value="productos" />
+            <span class="tipo-icon">📦</span>
+            <div>
+              <div class="tipo-label">Productos / Inventario</div>
+              <div class="tipo-desc">Nombre, SKU, precio, costo, stock</div>
+            </div>
+          </label>
+        </div>
+
+        <h3 style="font-size:15px;font-weight:500;margin-bottom:.75rem">Sube tu archivo</h3>
+        <p style="font-size:12px;color:var(--color-text-muted);margin-bottom:1rem">
+          Acepta Excel (.xlsx, .xls) y CSV. Cualquier formato que exporte tu sistema actual.
+        </p>
+
+        <div class="upload-zone" id="upload-zone">
+          <div class="uz-icon">📂</div>
+          <strong>Haz clic para seleccionar</strong>
+          <p>o arrastra tu archivo aquí</p>
+          <p style="font-size:11px">.xlsx · .xls · .csv — máx. 5 MB</p>
+        </div>
+        <input type="file" id="archivo-input" hidden accept=".xlsx,.xls,.csv" />
+
+        <div id="file-info" style="display:none;margin-bottom:1rem;padding:10px 14px;background:var(--color-bg-secondary);border-radius:var(--radius-md);font-size:13px">
+          📄 <span id="file-name"></span>
+        </div>
+
+        <button class="btn btn-primary" id="btn-next1" disabled>Ver columnas →</button>
+      </div>
+    </div>
+
+    <!-- ── Paso 2: Mapeo ── -->
+    <div class="wiz-panel" id="step2">
+      <div class="wiz-card">
+        <div class="flex-between" style="margin-bottom:1rem;align-items:flex-start">
+          <div>
+            <h3 style="font-size:15px;font-weight:500;margin-bottom:4px">Mapea tus columnas</h3>
+            <p style="font-size:12px;color:var(--color-text-muted)" id="total-rows-txt">—</p>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="btn-back1">← Volver</button>
+        </div>
+
+        <p style="font-size:12px;color:var(--color-text-muted);margin-bottom:.75rem">
+          Primeras filas de tu archivo:
+        </p>
+        <div class="sample-wrap" id="sample-wrap">
+          <div style="padding:1rem;text-align:center;color:var(--color-text-muted)">Cargando...</div>
+        </div>
+
+        <p style="font-size:13px;font-weight:500;margin-bottom:.75rem">
+          ¿Cuál columna tuya corresponde a cada campo de ServiGest?
+        </p>
+        <div class="map-grid" id="map-grid"></div>
+
+        <div class="flex gap-8" style="margin-top:.25rem">
+          <button class="btn btn-primary" id="btn-importar">Importar</button>
+          <span style="font-size:12px;color:var(--color-text-muted);align-self:center" id="import-hint">
+            Solo se importan filas con <strong>Nombre</strong> mapeado
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Paso 3: Resultado ── -->
+    <div class="wiz-panel" id="step3">
+      <div class="wiz-card">
+        <h3 style="font-size:15px;font-weight:500;margin-bottom:1.25rem">Resultado de la importación</h3>
+
+        <div class="result-stat">
+          <div class="stat-card stat-green"><div class="num" id="r-imp">0</div><div class="lbl">Importados</div></div>
+          <div class="stat-card stat-warn"> <div class="num" id="r-omi">0</div><div class="lbl">Ya existían</div></div>
+          <div class="stat-card stat-red">  <div class="num" id="r-err">0</div><div class="lbl">Errores</div></div>
+        </div>
+
+        <div id="err-list-wrap" style="display:none;margin-bottom:1.5rem">
+          <p style="font-size:13px;font-weight:500;margin-bottom:8px">Filas con error:</p>
+          <div class="error-list" id="err-list"></div>
+        </div>
+
+        <div class="flex gap-8">
+          <button class="btn btn-primary" id="btn-otra">Importar otro archivo</button>
+          <button class="btn btn-secondary" id="btn-ir">Ir a la sección →</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/api.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script>
+requireAuth();
+initSidebar('');
+
+// ── Definición de campos por tipo ─────────────────────────────────────────────
+const CAMPOS = {
+  clientes: [
+    { id:'nombre',    label:'Nombre / Razón Social', req: true },
+    { id:'telefono',  label:'Teléfono' },
+    { id:'email',     label:'Correo electrónico' },
+    { id:'rfc',       label:'RFC' },
+    { id:'direccion', label:'Dirección / Domicilio' },
+  ],
+  productos: [
+    { id:'nombre',       label:'Nombre del producto', req: true },
+    { id:'sku',          label:'SKU / Código' },
+    { id:'descripcion',  label:'Descripción / Detalle' },
+    { id:'precio',       label:'Precio de venta' },
+    { id:'costo',        label:'Costo / Precio compra' },
+    { id:'stock',        label:'Stock / Existencia' },
+    { id:'stock_minimo', label:'Stock mínimo' },
+    { id:'unidad',       label:'Unidad (pieza, kg…)' },
+  ],
+};
+
+// Sinónimos para auto-mapeo
+const SYNONYMS = {
+  nombre:       ['nombre','name','razón social','razon social','cliente','producto','descripcion','description'],
+  telefono:     ['telefono','teléfono','tel','phone','celular','movil','móvil','cell'],
+  email:        ['email','correo','e-mail','mail','correo electronico','correo electrónico'],
+  rfc:          ['rfc'],
+  direccion:    ['direccion','dirección','domicilio','address','calle'],
+  sku:          ['sku','código','codigo','code','clave','articulo','artículo','part number','pn'],
+  descripcion:  ['descripcion','descripción','detalle','detail','concepto','nota'],
+  precio:       ['precio','price','precio venta','pvp','p.v.p','precio de venta','venta','tarifa'],
+  costo:        ['costo','cost','precio compra','costo unitario','costo_unit','precio de costo','compra'],
+  stock:        ['stock','existencia','qty','cantidad','inventory','inventario','existencias','cant'],
+  stock_minimo: ['stock minimo','stock mínimo','min','minimo','mínimo','min stock','stock min'],
+  unidad:       ['unidad','unit','um','u.m.','medida','presentacion','presentación'],
+};
+
+function autoMatch(columns) {
+  const result = {};
+  for (const [field, syns] of Object.entries(SYNONYMS)) {
+    for (const col of columns) {
+      const lc = col.toLowerCase().trim();
+      if (syns.some(s => lc === s || lc.startsWith(s) || lc.includes(s))) {
+        result[field] = col;
+        break;
+      }
+    }
+  }
+  return result;
+}
+
+// ── Estado ────────────────────────────────────────────────────────────────────
+let currentFile   = null;
+let currentTipo   = 'clientes';
+let previewData   = null; // { columns, sample, total }
+
+// ── Selección de tipo ─────────────────────────────────────────────────────────
+document.querySelectorAll('.tipo-opt').forEach(opt => {
+  opt.addEventListener('click', () => {
+    document.querySelectorAll('.tipo-opt').forEach(o => o.classList.remove('sel'));
+    opt.classList.add('sel');
+    currentTipo = opt.querySelector('input').value;
+  });
+});
+
+// ── Upload zone ───────────────────────────────────────────────────────────────
+const uploadZone  = document.getElementById('upload-zone');
+const archivoInput = document.getElementById('archivo-input');
+const btnNext1    = document.getElementById('btn-next1');
+const fileInfo    = document.getElementById('file-info');
+const fileName    = document.getElementById('file-name');
+
+uploadZone.addEventListener('click', () => archivoInput.click());
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f) selectFile(f);
+});
+
+archivoInput.addEventListener('change', () => {
+  if (archivoInput.files[0]) selectFile(archivoInput.files[0]);
+});
+
+function selectFile(f) {
+  currentFile = f;
+  fileName.textContent = `${f.name}  (${(f.size/1024).toFixed(1)} KB)`;
+  fileInfo.style.display = 'block';
+  btnNext1.disabled = false;
+}
+
+// ── Paso 1 → 2 ───────────────────────────────────────────────────────────────
+btnNext1.addEventListener('click', async () => {
+  btnNext1.disabled = true;
+  btnNext1.textContent = '⏳ Leyendo archivo...';
+  try {
+    previewData = await api.import.preview(currentFile);
+    renderStep2();
+    goToStep(2);
+  } catch(err) {
+    showToast(err.message, 'error');
+  } finally {
+    btnNext1.disabled = false;
+    btnNext1.textContent = 'Ver columnas →';
+  }
+});
+
+function renderStep2() {
+  // Total
+  document.getElementById('total-rows-txt').textContent =
+    `${previewData.total} filas encontradas en el archivo`;
+
+  // Sample table
+  const cols = previewData.columns;
+  const rows = previewData.sample;
+  const sampleWrap = document.getElementById('sample-wrap');
+  sampleWrap.innerHTML = `
+    <table class="sample-table">
+      <thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
+      <tbody>${rows.map(r =>
+        `<tr>${cols.map(c => `<td>${esc(String(r[c] ?? ''))}</td>`).join('')}</tr>`
+      ).join('')}</tbody>
+    </table>`;
+
+  // Auto-mapping
+  const auto = autoMatch(cols);
+
+  // Mapping form
+  const campos = CAMPOS[currentTipo];
+  const mapGrid = document.getElementById('map-grid');
+  mapGrid.innerHTML = campos.map(campo => {
+    const matched = auto[campo.id] || '';
+    const opts = cols.map(c =>
+      `<option value="${esc(c)}" ${c === matched ? 'selected' : ''}>${esc(c)}</option>`
+    ).join('');
+    return `
+      <div class="map-row">
+        <div class="map-label">
+          ${campo.label}
+          ${campo.req ? '<span>* requerido</span>' : ''}
+        </div>
+        <select class="form-select map-select" data-field="${campo.id}">
+          <option value="">— No importar —</option>
+          ${opts}
+        </select>
+      </div>`;
+  }).join('');
+}
+
+// ── Back ──────────────────────────────────────────────────────────────────────
+document.getElementById('btn-back1').addEventListener('click', () => goToStep(1));
+
+// ── Importar ──────────────────────────────────────────────────────────────────
+document.getElementById('btn-importar').addEventListener('click', async () => {
+  // Construir mapping
+  const mapping = {};
+  document.querySelectorAll('.map-select').forEach(sel => {
+    if (sel.value) mapping[sel.dataset.field] = sel.value;
+  });
+
+  if (!mapping.nombre) {
+    return showToast('Debes mapear al menos el campo "Nombre"', 'error');
+  }
+
+  const btn = document.getElementById('btn-importar');
+  btn.disabled = true;
+  btn.textContent = '⏳ Importando...';
+
+  try {
+    let result;
+    if (currentTipo === 'clientes') {
+      result = await api.import.clientesMapeados(currentFile, mapping);
+    } else {
+      result = await api.import.productosMapeados(currentFile, mapping);
+    }
+    renderStep3(result);
+    goToStep(3);
+  } catch(err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Importar';
+  }
+});
+
+function renderStep3(result) {
+  document.getElementById('r-imp').textContent = result.importados ?? 0;
+  document.getElementById('r-omi').textContent = result.omitidos  ?? 0;
+  document.getElementById('r-err').textContent = result.errores?.length ?? 0;
+
+  const errWrap = document.getElementById('err-list-wrap');
+  const errList = document.getElementById('err-list');
+  if (result.errores?.length) {
+    errList.innerHTML = result.errores.map(e =>
+      `<div class="err-row">Fila ${e.fila}: ${esc(e.error)}</div>`
+    ).join('');
+    errWrap.style.display = 'block';
+  } else {
+    errWrap.style.display = 'none';
+  }
+
+  // Botón "Ir a la sección"
+  const hrefs = { clientes: '../clientes/clientes.html', productos: '../productos/productos.html' };
+  document.getElementById('btn-ir').onclick = () => { window.location.href = hrefs[currentTipo]; };
+}
+
+// ── Reiniciar ─────────────────────────────────────────────────────────────────
+document.getElementById('btn-otra').addEventListener('click', () => {
+  currentFile  = null;
+  previewData  = null;
+  archivoInput.value = '';
+  fileInfo.style.display  = 'none';
+  btnNext1.disabled = true;
+  goToStep(1);
+});
+
+// ── Navegación de pasos ───────────────────────────────────────────────────────
+function goToStep(n) {
+  document.querySelectorAll('.wiz-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('step' + n).classList.add('active');
+
+  const steps = [
+    document.getElementById('ws1'),
+    document.getElementById('ws2'),
+    document.getElementById('ws3'),
+  ];
+  steps.forEach((s, i) => {
+    s.classList.remove('active','done');
+    if (i + 1 < n) s.classList.add('done');
+    if (i + 1 === n) s.classList.add('active');
+  });
+}
+
+// ── Escape HTML ───────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
