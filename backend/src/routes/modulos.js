@@ -1,9 +1,9 @@
 const express = require('express');
 const router  = express.Router();
-const auth    = require('../middleware/auth');
+const { authMiddleware: auth, soloAdmin } = require('../middleware/auth');
 const ctrl    = require('../controllers/modulos');
 
-router.get('/',           auth, ctrl.getAll);
-router.patch('/:modulo',  auth, ctrl.toggle);
+router.get('/',                    auth,            ctrl.getAll);
+router.patch('/:modulo',  auth, soloAdmin, ctrl.toggle);
 
 module.exports = router;

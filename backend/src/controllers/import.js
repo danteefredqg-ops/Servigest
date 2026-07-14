@@ -34,7 +34,11 @@ async function importClientes(req, res, next) {
     const rows = parseFile(req.file.buffer);
     if (!rows.length) return res.status(400).json({ error: 'El archivo está vacío' });
 
-    const map = req.body.mapping ? JSON.parse(req.body.mapping) : null;
+    let map = null;
+    if (req.body.mapping) {
+      try { map = JSON.parse(req.body.mapping); }
+      catch { return res.status(400).json({ error: 'El campo mapping no es JSON válido' }); }
+    }
     const resultados = { importados: 0, omitidos: 0, errores: [] };
 
     for (const [i, row] of rows.entries()) {
@@ -84,7 +88,11 @@ async function importProductos(req, res, next) {
     const rows = parseFile(req.file.buffer);
     if (!rows.length) return res.status(400).json({ error: 'El archivo está vacío' });
 
-    const map = req.body.mapping ? JSON.parse(req.body.mapping) : null;
+    let map = null;
+    if (req.body.mapping) {
+      try { map = JSON.parse(req.body.mapping); }
+      catch { return res.status(400).json({ error: 'El campo mapping no es JSON válido' }); }
+    }
     const resultados = { importados: 0, omitidos: 0, errores: [] };
 
     for (const [i, row] of rows.entries()) {
@@ -106,7 +114,7 @@ async function importProductos(req, res, next) {
         const costo  = parseFloat(getVal(row, 'costo',  map)) || 0;
         const stock  = parseInt(getVal(row,   'stock',  map)) || 0;
         const sMin   = parseInt(getVal(row,   'stock_minimo', map)) || 0;
-        const unidad = getVal(row, 'unidad', map) || 'pieza';
+        const unidad = getVal(row, 'unidad', map) || 'servicio';
         const desc   = getVal(row, 'descripcion', map) || null;
 
         await db.query(

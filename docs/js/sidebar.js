@@ -98,6 +98,9 @@ async function buildSidebar(activeId) {
       return activoMap[mod] !== false;
     });
     renderItems(filtrados);
+    // Re-aplicar permisos por rol después del segundo render (el primero ya fue procesado
+    // por Permisos.aplicar() que se dispara 100 ms después de initSidebar)
+    if (typeof Permisos !== 'undefined') Permisos.aplicar();
   }
 
   setTimeout(actualizarBadgeAlertas, 500);

@@ -26,7 +26,7 @@
     .wstep.done   .wstep-num { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
     .wstep.active { color: var(--color-text); font-weight: 500; }
     .wstep-line { flex: 1; height: 2px; background: var(--color-border); margin: 0 8px; min-width: 40px; }
-    .wstep.done ~ .wstep-line, .wstep-line.done { background: var(--color-accent); }
+    .wstep.done + .wstep-line { background: var(--color-accent); }
 
     /* ── Tipo selector ──────────────────────────────────────── */
     .tipo-opts { display: flex; gap: 12px; margin-bottom: 1.5rem; }
@@ -248,7 +248,7 @@ const CAMPOS = {
 
 // Sinónimos para auto-mapeo
 const SYNONYMS = {
-  nombre:       ['nombre','name','razón social','razon social','cliente','producto','descripcion','description'],
+  nombre:       ['nombre','name','razón social','razon social','cliente','producto'],
   telefono:     ['telefono','teléfono','tel','phone','celular','movil','móvil','cell'],
   email:        ['email','correo','e-mail','mail','correo electronico','correo electrónico'],
   rfc:          ['rfc'],
