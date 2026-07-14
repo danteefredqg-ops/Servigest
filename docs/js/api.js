@@ -249,6 +249,12 @@ const api = {
     updateEstado: (id,estado) => api.patch(`/garantias/${id}/estado`, { estado }),
     delete:       (id)       => api.delete(`/garantias/${id}`),
   },
+
+  // ── Módulos ───────────────────────────────────────────────────────────────
+  modulos: {
+    list:   ()          => api.get('/modulos'),
+    toggle: (id, activo) => api.patch(`/modulos/${id}`, { activo }),
+  },
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

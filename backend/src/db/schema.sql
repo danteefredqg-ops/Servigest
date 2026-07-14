@@ -351,3 +351,22 @@ CREATE TABLE IF NOT EXISTS historial_precios_compra (
 
 CREATE INDEX IF NOT EXISTS idx_hist_precios_producto ON historial_precios_compra(producto_id);
 CREATE INDEX IF NOT EXISTS idx_hist_precios_empresa  ON historial_precios_compra(empresa_id);
+
+-- ── MÓDULOS POR EMPRESA ───────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS modulos_config (
+  empresa_id  UUID NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+  modulo      VARCHAR(50) NOT NULL,
+  activo      BOOLEAN NOT NULL DEFAULT true,
+  PRIMARY KEY (empresa_id, modulo)
+);
+
+-- Activar todos los módulos para empresas existentes que no tengan config
+INSERT INTO modulos_config (empresa_id, modulo, activo)
+SELECT e.id, m.modulo, true
+FROM empresas e
+CROSS JOIN (VALUES
+  ('clientes'),('ordenes'),('inventario'),('cotizaciones'),
+  ('pos'),('pedidos'),('compras'),('facturas'),('cxc'),
+  ('caja'),('garantias'),('reportes'),('alertas')
+) AS m(modulo)
+ON CONFLICT (empresa_id, modulo) DO NOTHING;

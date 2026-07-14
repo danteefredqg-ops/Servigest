@@ -46,6 +46,7 @@
       <button class="tab-btn" data-tab="planes">Plan y suscripción</button>
       <button class="tab-btn" data-tab="cuenta">Mi cuenta</button>
       <button class="tab-btn" data-tab="seguridad">Seguridad</button>
+      <button class="tab-btn" data-tab="modulos">Módulos</button>
     </div>
 
     <!-- Tab: Empresa -->
@@ -279,6 +280,19 @@
       </div>
     </div>
 
+    <!-- Tab: Módulos -->
+    <div class="tab-panel" id="tab-modulos">
+      <div style="max-width:620px">
+        <h3 style="font-size:15px;font-weight:500;margin-bottom:6px">Módulos activos</h3>
+        <p style="font-size:13px;color:var(--color-text-muted);margin-bottom:1.5rem">
+          Activa o desactiva funciones del sistema. Las secciones desactivadas desaparecen del menú lateral para todos los usuarios de tu empresa.
+        </p>
+        <div id="lista-modulos">
+          <div style="text-align:center;padding:2rem;color:var(--color-text-muted)">Cargando...</div>
+        </div>
+      </div>
+    </div>
+
   </main>
 </div>
 
@@ -488,6 +502,65 @@
     localStorage.setItem('sg_session_timeout', val);
     showToast('✅ Configuración de seguridad guardada. Recarga para que aplique.');
   });
+
+  // ── Módulos ───────────────────────────────────────────────────────────────
+  async function loadModulos() {
+    const el = document.getElementById('lista-modulos');
+    try {
+      const lista = await api.modulos.list();
+      el.innerHTML = lista.map(m => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--color-border)">
+          <div>
+            <div style="font-size:13px;font-weight:500">${m.nombre}</div>
+            <div style="font-size:12px;color:var(--color-text-muted);margin-top:2px">${m.descripcion}</div>
+          </div>
+          <label class="toggle-switch" title="${m.activo ? 'Desactivar' : 'Activar'}">
+            <input type="checkbox" ${m.activo ? 'checked' : ''} data-modulo="${m.id}" onchange="toggleModulo(this)" />
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      `).join('');
+    } catch(err) {
+      el.innerHTML = `<div class="alert alert-warning">Solo los administradores pueden gestionar módulos.</div>`;
+    }
+  }
+
+  async function toggleModulo(checkbox) {
+    const id     = checkbox.dataset.modulo;
+    const activo = checkbox.checked;
+    checkbox.disabled = true;
+    try {
+      await api.modulos.toggle(id, activo);
+      invalidarCacheModulos();
+      showToast(`✅ Módulo ${activo ? 'activado' : 'desactivado'}`);
+    } catch(err) {
+      showToast(err.message, 'error');
+      checkbox.checked = !activo; // revertir
+    }
+    checkbox.disabled = false;
+  }
+
+  // Cargar módulos al abrir la pestaña
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    if (btn.dataset.tab === 'modulos') btn.addEventListener('click', loadModulos);
+  });
 </script>
+
+<style>
+  .toggle-switch { position:relative; display:inline-flex; align-items:center; cursor:pointer; }
+  .toggle-switch input { opacity:0; width:0; height:0; position:absolute; }
+  .toggle-track {
+    width:40px; height:22px; background:var(--color-border); border-radius:11px;
+    transition:background .2s; flex-shrink:0;
+  }
+  .toggle-track::after {
+    content:''; position:absolute; top:3px; left:3px;
+    width:16px; height:16px; background:#fff; border-radius:50%;
+    transition:transform .2s; box-shadow:0 1px 3px rgba(0,0,0,.2);
+  }
+  .toggle-switch input:checked + .toggle-track { background:var(--color-accent); }
+  .toggle-switch input:checked + .toggle-track::after { transform:translateX(18px); }
+  .toggle-switch input:disabled + .toggle-track { opacity:.5; cursor:not-allowed; }
+</style>
 </body>
 </html>

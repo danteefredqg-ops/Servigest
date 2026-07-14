@@ -43,6 +43,18 @@ async function register(req, res, next) {
         [emp.id, nombre, email, hash]
       );
 
+      // Activar todos los módulos por defecto para la nueva empresa
+      const MODULOS_DEFAULT = [
+        'clientes','ordenes','inventario','cotizaciones','pos','pedidos',
+        'compras','facturas','cxc','caja','garantias','reportes','alertas',
+      ];
+      for (const mod of MODULOS_DEFAULT) {
+        await client.query(
+          `INSERT INTO modulos_config (empresa_id, modulo, activo) VALUES ($1, $2, true) ON CONFLICT DO NOTHING`,
+          [emp.id, mod]
+        );
+      }
+
       await client.query('COMMIT');
 
       const user  = userRes.rows[0];

@@ -38,22 +38,68 @@ const NAV_ITEMS = [
     icon:'<path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>' },
 ];
 
-function buildSidebar(activeId) {
+// Módulo que controla cada ítem del sidebar (undefined = siempre visible)
+const MODULO_MAP = {
+  clientes: 'clientes', ordenes: 'ordenes', productos: 'inventario',
+  cotizaciones: 'cotizaciones', pos: 'pos', pedidos: 'pedidos',
+  compras: 'compras', facturas: 'facturas', cxc: 'cxc',
+  caja: 'caja', garantias: 'garantias', finanzas: 'reportes', alertas: 'alertas',
+};
+
+const SG_MODULOS_CACHE_KEY = 'sg_modulos_cache';
+const SG_MODULOS_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+
+async function cargarModulos() {
+  try {
+    const raw = localStorage.getItem(SG_MODULOS_CACHE_KEY);
+    if (raw) {
+      const { ts, data } = JSON.parse(raw);
+      if (Date.now() - ts < SG_MODULOS_CACHE_TTL) return data;
+    }
+    const data = await api.modulos.list();
+    localStorage.setItem(SG_MODULOS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
+    return data;
+  } catch { return null; }
+}
+
+function invalidarCacheModulos() {
+  localStorage.removeItem(SG_MODULOS_CACHE_KEY);
+}
+
+async function buildSidebar(activeId) {
   const nav = document.getElementById('sidebar-nav');
   if (!nav) return;
 
-  nav.innerHTML = NAV_ITEMS.map(item => `
-    <a class="nav-link ${item.id === activeId ? 'active' : ''}"
-       data-page="${item.id}" href="${item.href}">
-      <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-        ${item.icon}
-      </svg>
-      ${item.label}
-      ${item.badge ? `<span style="font-size:10px;margin-left:auto">${item.badge}</span>` : ''}
-    </a>
-  `).join('');
+  // Construir con todos los ítems de inmediato (evita flash en carga)
+  const renderItems = (items) => {
+    nav.innerHTML = items.map(item => `
+      <a class="nav-link ${item.id === activeId ? 'active' : ''}"
+         data-page="${item.id}" href="${item.href}">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          ${item.icon}
+        </svg>
+        ${item.label}
+        ${item.badge ? `<span style="font-size:10px;margin-left:auto">${item.badge}</span>` : ''}
+      </a>
+    `).join('');
+  };
 
-  // Badge de alertas
+  renderItems(NAV_ITEMS);
+
+  // Luego filtrar por módulos activos
+  const modulos = await cargarModulos();
+  if (modulos) {
+    const activoMap = {};
+    modulos.forEach(m => { activoMap[m.id] = m.activo; });
+
+    const filtrados = NAV_ITEMS.filter(item => {
+      const mod = MODULO_MAP[item.id];
+      if (!mod) return true; // sin módulo asignado → siempre visible
+      return activoMap[mod] !== false;
+    });
+    renderItems(filtrados);
+  }
+
   setTimeout(actualizarBadgeAlertas, 500);
 }
 
