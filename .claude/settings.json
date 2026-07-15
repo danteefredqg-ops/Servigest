@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(code-review)",
+      "Skill(code-review:*)",
+      "Bash(git commit -m ' *)",
+      "PowerShell(cmdkey /delete:LegacyGeneric:target=git:https://github.com 2>&1)",
+      "PowerShell(cmdkey /delete:LegacyGeneric:target=https://github.com 2>&1)",
+      "PowerShell(git credential reject)",
+      "PowerShell(git credential-manager github logout 2>&1)",
+      "PowerShell(git -c credential.helper=\"\" push origin main 2>&1)",
+      "PowerShell(git credential-manager github logout danteefredqg-ops 2>&1)",
+      "Read(//c/Users/dante/.claude/**)",
+      "Bash(git remote *)",
+      "Bash(curl -s https://servigest-production-a7c5.up.railway.app/api/health)",
+      "Bash(curl -s https://servigest-production-a7c5.up.railway.app/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://servigest-production-a7c5.up.railway.app/api/auth/login -X POST -H \"Content-Type: application/json\" -d '{\"email\":\"test@test.com\",\"password\":\"test\"}')",
+      "Bash(curl -si https://servigest-production-a7c5.up.railway.app/api/auth/login -X POST -H \"Content-Type: application/json\" -H \"Origin: https://danteefredqg-ops.github.io\" -d '{\"email\":\"test@test.com\",\"password\":\"test\"}')",
+      "Bash(cp frontend/pages/clientes/clientes.html docs/pages/clientes/clientes.html)",
+      "Bash(cp frontend/pages/pos/pos.html docs/pages/pos/pos.html)",
+      "Bash(cp frontend/pages/ordenes/ordenes.html docs/pages/ordenes/ordenes.html)",
+      "Bash(cp frontend/js/api.js docs/js/api.js)"
+    ]
+  }
+}

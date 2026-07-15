@@ -215,6 +215,32 @@
     <div id="det-alertas-lista"></div>
   </div>
 
+  <!-- Cotización de reparación -->
+  <div>
+    <div class="det-label" style="margin-bottom:8px">Cotización de reparación</div>
+    <div id="det-cotizacion-wrap">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px" id="det-cot-tabla">
+        <thead>
+          <tr style="border-bottom:1px solid var(--color-border)">
+            <th style="text-align:left;padding:6px 4px;color:var(--color-text-muted);font-weight:500">Concepto</th>
+            <th style="text-align:center;padding:6px 4px;color:var(--color-text-muted);font-weight:500;width:60px">Cant.</th>
+            <th style="text-align:right;padding:6px 4px;color:var(--color-text-muted);font-weight:500;width:90px">Precio</th>
+            <th style="width:30px"></th>
+          </tr>
+        </thead>
+        <tbody id="det-cot-rows"></tbody>
+      </table>
+      <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:600;padding:6px 4px;border-top:1px solid var(--color-border-md)">
+        <span>Total cotización</span><span id="det-cot-total">$0.00</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-ghost btn-sm" onclick="agregarConceptoCot()">+ Concepto</button>
+        <button class="btn btn-secondary btn-sm" id="det-btn-guardar-cot" onclick="guardarCotizacionOT()">Guardar</button>
+        <button class="btn btn-ghost btn-sm" onclick="imprimirCotizacionOT()">🖨 Imprimir</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Acciones -->
   <div style="display:flex;flex-direction:column;gap:8px;margin-top:auto;padding-top:.5rem">
     <button class="btn btn-secondary" id="det-btn-pieza" onclick="abrirSolicitarPieza()">
@@ -224,7 +250,7 @@
       📱 Notificar cliente por WhatsApp
     </button>
     <button class="btn btn-secondary" id="det-btn-cotizacion" onclick="generarCotizacionDesdeOT()">
-      📋 Generar cotización
+      📋 Generar cotización formal
     </button>
     <div class="flex gap-8">
       <button class="btn btn-primary" style="flex:1" id="det-btn-factura" onclick="facturarOT()">
@@ -253,8 +279,27 @@
 
       <div class="grid-2">
         <div class="form-group">
-          <label class="form-label">Equipo / Máquina</label>
-          <input class="form-input" id="ot-equipo" placeholder="Ej. Torno CNC, Prensa hidráulica..."/>
+          <label class="form-label">Tipo de equipo</label>
+          <select class="form-select" id="ot-tipo-equipo">
+            <option value="">— Seleccionar —</option>
+            <option value="Soldadora">Soldadora</option>
+            <option value="Compresor">Compresor</option>
+            <option value="Cortadora">Cortadora</option>
+            <option value="Generador">Generador</option>
+            <option value="Torno">Torno</option>
+            <option value="Fresadora">Fresadora</option>
+            <option value="Bomba">Bomba</option>
+            <option value="Motor">Motor</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Marca / Modelo</label>
+          <input class="form-input" id="ot-modelo" placeholder="Ej. Lincoln Electric AC-225"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descripción / Nombre del equipo</label>
+          <input class="form-input" id="ot-equipo" placeholder="Ej. Torno CNC Haas ST-10"/>
         </div>
         <div class="form-group">
           <label class="form-label">Número de serie</label>
@@ -520,7 +565,8 @@ async function verDetalle(id) {
 
     document.getElementById('det-num').textContent      = `OT #${String(o.numero).padStart(4,'0')}`;
     document.getElementById('det-created').textContent  = `Recibida: ${formatDate(o.created_at)}`;
-    document.getElementById('det-equipo').textContent   = o.equipo || 'Sin nombre';
+    const equipoLabel = [o.tipo_equipo, o.modelo, o.equipo].filter(Boolean).join(' · ') || 'Sin nombre';
+    document.getElementById('det-equipo').textContent   = equipoLabel;
     document.getElementById('det-serie').textContent    = o.num_serie ? `Serie: ${o.num_serie}` : '';
     document.getElementById('det-descripcion').textContent = o.descripcion;
     document.getElementById('det-cliente').textContent  = o.cliente_nombre;
@@ -594,6 +640,7 @@ async function verDetalle(id) {
     const mostrarWA = (o.estado === 'terminada' || o.estado === 'entregada') && o.cliente_telefono;
     btnWA.style.display = mostrarWA ? 'block' : 'none';
 
+    cargarCotizacionEnDetalle(o);
     Permisos.aplicar();
     document.getElementById('det-overlay').classList.add('open');
     document.getElementById('det-panel').classList.add('open');
@@ -691,7 +738,7 @@ document.getElementById('btn-nueva').addEventListener('click', async () => {
   document.getElementById('ot-cliente').innerHTML =
     clientes.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
 
-  ['ot-equipo','ot-serie','ot-desc','ot-buscar-catalogo'].forEach(id => document.getElementById(id).value = '');
+  ['ot-tipo-equipo','ot-modelo','ot-equipo','ot-serie','ot-desc','ot-buscar-catalogo'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('ot-catalogo-dropdown').style.display = 'none';
   document.getElementById('ot-prioridad').value = 'normal';
   document.getElementById('ot-fecha').value = '';
@@ -811,6 +858,8 @@ document.getElementById('btn-guardar-ot').addEventListener('click', async () => 
   const body = {
     cliente_id:     document.getElementById('ot-cliente').value,
     descripcion:    document.getElementById('ot-desc').value.trim(),
+    tipo_equipo:    document.getElementById('ot-tipo-equipo').value || null,
+    modelo:         document.getElementById('ot-modelo').value.trim() || null,
     equipo:         document.getElementById('ot-equipo').value.trim(),
     num_serie:      document.getElementById('ot-serie').value.trim(),
     prioridad:      document.getElementById('ot-prioridad').value,
@@ -902,6 +951,107 @@ async function generarCotizacionDesdeOT() {
     showToast(`✅ Cotización generada desde OT #${otNum}`);
     cerrarDetalle();
   } catch(err) { showToast(err.message, 'error'); }
+}
+
+// ── Cotización de reparación ──────────────────────────────────────────────────
+function renderCotizacionDetalle(conceptos) {
+  const tbody = document.getElementById('det-cot-rows');
+  const rows  = conceptos || [];
+  tbody.innerHTML = rows.map((c, i) => `
+    <tr style="border-bottom:1px solid var(--color-border)">
+      <td style="padding:6px 4px">
+        <input class="form-input" style="font-size:12px;padding:4px 8px;min-height:28px" value="${c.descripcion||''}" oninput="actualizarCotizacion()" data-field="desc" data-idx="${i}"/>
+      </td>
+      <td style="padding:6px 4px">
+        <input class="form-input" type="number" style="font-size:12px;padding:4px 6px;min-height:28px;text-align:center" value="${c.cantidad||1}" min="0.01" step="0.01" oninput="actualizarCotizacion()" data-field="qty" data-idx="${i}"/>
+      </td>
+      <td style="padding:6px 4px">
+        <input class="form-input" type="number" style="font-size:12px;padding:4px 6px;min-height:28px;text-align:right" value="${c.precio_unit||0}" min="0" step="0.01" oninput="actualizarCotizacion()" data-field="price" data-idx="${i}"/>
+      </td>
+      <td style="padding:4px">
+        <button class="ci-del" onclick="quitarConceptoCot(${i})">✕</button>
+      </td>
+    </tr>`).join('');
+  actualizarCotizacion();
+}
+
+function agregarConceptoCot() {
+  const tbody = document.getElementById('det-cot-rows');
+  const idx   = tbody.querySelectorAll('tr').length;
+  const tr    = document.createElement('tr');
+  tr.style.borderBottom = '1px solid var(--color-border)';
+  tr.innerHTML = `
+    <td style="padding:6px 4px"><input class="form-input" style="font-size:12px;padding:4px 8px;min-height:28px" placeholder="Concepto" oninput="actualizarCotizacion()" data-field="desc" data-idx="${idx}"/></td>
+    <td style="padding:6px 4px"><input class="form-input" type="number" style="font-size:12px;padding:4px 6px;min-height:28px;text-align:center" value="1" min="0.01" step="0.01" oninput="actualizarCotizacion()" data-field="qty" data-idx="${idx}"/></td>
+    <td style="padding:6px 4px"><input class="form-input" type="number" style="font-size:12px;padding:4px 6px;min-height:28px;text-align:right" value="0" min="0" step="0.01" oninput="actualizarCotizacion()" data-field="price" data-idx="${idx}"/></td>
+    <td style="padding:4px"><button class="ci-del" onclick="this.closest('tr').remove();actualizarCotizacion()">✕</button></td>`;
+  tbody.appendChild(tr);
+  tr.querySelector('input').focus();
+}
+
+function quitarConceptoCot(idx) {
+  const rows = document.querySelectorAll('#det-cot-rows tr');
+  if (rows[idx]) { rows[idx].remove(); actualizarCotizacion(); }
+}
+
+function actualizarCotizacion() {
+  let total = 0;
+  document.querySelectorAll('#det-cot-rows tr').forEach(tr => {
+    const qty   = parseFloat(tr.querySelector('[data-field="qty"]')?.value)   || 0;
+    const price = parseFloat(tr.querySelector('[data-field="price"]')?.value) || 0;
+    total += qty * price;
+  });
+  document.getElementById('det-cot-total').textContent = formatMoney(total);
+}
+
+function getCotizacionConceptos() {
+  const conceptos = [];
+  document.querySelectorAll('#det-cot-rows tr').forEach(tr => {
+    const desc  = tr.querySelector('[data-field="desc"]')?.value?.trim() || '';
+    const qty   = parseFloat(tr.querySelector('[data-field="qty"]')?.value)   || 1;
+    const price = parseFloat(tr.querySelector('[data-field="price"]')?.value) || 0;
+    if (desc) conceptos.push({ descripcion: desc, cantidad: qty, precio_unit: price });
+  });
+  return conceptos;
+}
+
+async function guardarCotizacionOT() {
+  if (!otActual) return;
+  const conceptos = getCotizacionConceptos();
+  try {
+    await api.ordenes.guardarCotizacion(otActual.id, { conceptos });
+    showToast('✅ Cotización guardada');
+    otActual.cotizacion_json = conceptos;
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+function imprimirCotizacionOT() {
+  if (!otActual) return;
+  const conceptos  = getCotizacionConceptos();
+  const total      = conceptos.reduce((s,c) => s + c.cantidad * c.precio_unit, 0);
+  const otNum      = String(otActual.numero).padStart(4,'0');
+  const winPrint   = window.open('', '', 'width=600,height=700');
+  winPrint.document.write(`
+    <html><head><title>Cotización OT #${otNum}</title>
+    <style>body{font-family:Arial,sans-serif;padding:24px;font-size:13px}
+    h2{font-size:18px;margin-bottom:4px}table{width:100%;border-collapse:collapse;margin-top:16px}
+    th{background:#f5f5f5;padding:8px;text-align:left;border-bottom:2px solid #ddd;font-size:11px;text-transform:uppercase}
+    td{padding:8px;border-bottom:1px solid #eee}.total{font-size:16px;font-weight:700;text-align:right;margin-top:12px}</style>
+    </head><body>
+    <h2>Cotización de reparación</h2>
+    <div style="color:#666;font-size:12px">OT #${otNum} · ${otActual.equipo||''} · Cliente: ${otActual.cliente_nombre}</div>
+    <table><thead><tr><th>Concepto</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>
+    ${conceptos.map(c=>`<tr><td>${c.descripcion}</td><td>${c.cantidad}</td><td>$${c.precio_unit.toFixed(2)}</td><td>$${(c.cantidad*c.precio_unit).toFixed(2)}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="total">Total: $${total.toFixed(2)}</div>
+    </body></html>`);
+  winPrint.document.close();
+  winPrint.print();
+}
+
+// Cargar cotización al abrir detalle
+function cargarCotizacionEnDetalle(ot) {
+  renderCotizacionDetalle(ot.cotizacion_json || []);
 }
 
 loadOTs();

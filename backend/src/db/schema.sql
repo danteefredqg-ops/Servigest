@@ -333,9 +333,14 @@ CREATE INDEX IF NOT EXISTS idx_garantias_cliente ON garantias(cliente_id);
 CREATE INDEX IF NOT EXISTS idx_garantias_estado  ON garantias(estado);
 
 -- ── COLUMNAS ADICIONALES (idempotentes) ──────────────────────────────────────
-ALTER TABLE productos    ADD COLUMN IF NOT EXISTS proveedor    VARCHAR(200);
-ALTER TABLE productos    ADD COLUMN IF NOT EXISTS fecha_compra DATE;
-ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS ot_id        UUID REFERENCES ordenes_trabajo(id) ON DELETE SET NULL;
+ALTER TABLE productos        ADD COLUMN IF NOT EXISTS proveedor      VARCHAR(200);
+ALTER TABLE productos        ADD COLUMN IF NOT EXISTS fecha_compra   DATE;
+ALTER TABLE cotizaciones     ADD COLUMN IF NOT EXISTS ot_id          UUID REFERENCES ordenes_trabajo(id) ON DELETE SET NULL;
+ALTER TABLE pedidos          ADD COLUMN IF NOT EXISTS forma_pago     VARCHAR(30) DEFAULT 'por_definir';
+ALTER TABLE ordenes_trabajo  ADD COLUMN IF NOT EXISTS tipo_equipo    VARCHAR(100);
+ALTER TABLE ordenes_trabajo  ADD COLUMN IF NOT EXISTS modelo         VARCHAR(100);
+ALTER TABLE ordenes_trabajo  ADD COLUMN IF NOT EXISTS foto_entrada   TEXT;
+ALTER TABLE ordenes_trabajo  ADD COLUMN IF NOT EXISTS cotizacion_json JSONB;
 
 -- ── HISTORIAL DE PRECIOS DE COMPRA ───────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS historial_precios_compra (

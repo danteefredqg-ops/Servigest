@@ -147,10 +147,15 @@
 
     <div>
       <div style="font-size:12px;font-weight:500;color:var(--color-text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">Forma de pago</div>
-      <div class="cobro-metodo">
+      <div class="cobro-metodo" style="grid-template-columns:repeat(4,1fr)">
         <button class="metodo-btn active" data-metodo="efectivo">💵 Efectivo</button>
-        <button class="metodo-btn" data-metodo="transferencia">📱 Transferencia</button>
-        <button class="metodo-btn" data-metodo="tarjeta">💳 Tarjeta</button>
+        <button class="metodo-btn" data-metodo="transferencia">📱 SPEI</button>
+        <button class="metodo-btn" data-metodo="tarjeta_debito">💳 Débito</button>
+        <button class="metodo-btn" data-metodo="tarjeta_credito">💳 Crédito</button>
+        <button class="metodo-btn" data-metodo="cheque">🏦 Cheque</button>
+        <button class="metodo-btn" data-metodo="credito">📋 A crédito</button>
+        <button class="metodo-btn" data-metodo="parcialidades">📆 Parcialidades</button>
+        <button class="metodo-btn" data-metodo="por_definir">⏳ Por definir</button>
       </div>
     </div>
 
@@ -405,6 +410,7 @@ document.getElementById('btn-confirmar-cobro').addEventListener('click', async (
       descripcion: 'Venta de mostrador',
       estado:      'entregado',
       iva:         true,
+      forma_pago:  metodoActivo,
       items,
     });
 

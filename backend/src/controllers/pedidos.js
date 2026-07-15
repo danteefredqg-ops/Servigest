@@ -70,6 +70,7 @@ async function create(req, res, next) {
       cliente_id, descripcion, fecha_servicio, notas,
       items = [],   // [{ producto_id, descripcion, cantidad, precio_unit, descuento }]
       iva = true,   // aplicar IVA 16% por defecto
+      forma_pago = 'por_definir',
     } = req.body;
 
     if (!cliente_id) return res.status(400).json({ error: 'cliente_id es requerido' });
@@ -100,11 +101,11 @@ async function create(req, res, next) {
     // Insertar pedido
     const pedidoRes = await client.query(
       `INSERT INTO pedidos
-         (empresa_id, cliente_id, descripcion, subtotal, impuestos, total, fecha_servicio, notas)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+         (empresa_id, cliente_id, descripcion, subtotal, impuestos, total, fecha_servicio, notas, forma_pago)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        RETURNING *`,
       [req.user.empresa_id, cliente_id, descripcion, subtotal, impuestos, total,
-       fecha_servicio || null, notas || null]
+       fecha_servicio || null, notas || null, forma_pago]
     );
     const pedido = pedidoRes.rows[0];
 

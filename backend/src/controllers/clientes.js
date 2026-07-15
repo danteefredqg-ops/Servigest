@@ -48,16 +48,16 @@ async function getById(req, res, next) {
 
 async function create(req, res, next) {
   try {
-    const { nombre, telefono, email, direccion } = req.body;
+    const { nombre, telefono, email, direccion, rfc } = req.body;
 
     if (!nombre) {
       return res.status(400).json({ error: 'El nombre es requerido' });
     }
 
     const result = await db.query(
-      `INSERT INTO clientes (nombre, telefono, email, direccion, empresa_id)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [nombre, telefono, email, direccion, req.user.empresa_id]
+      `INSERT INTO clientes (nombre, telefono, email, direccion, rfc, empresa_id)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [nombre, telefono, email, direccion, rfc ? rfc.toUpperCase() : null, req.user.empresa_id]
     );
 
     res.status(201).json(result.rows[0]);
@@ -68,17 +68,19 @@ async function create(req, res, next) {
 
 async function update(req, res, next) {
   try {
-    const { nombre, telefono, email, direccion } = req.body;
+    const { nombre, telefono, email, direccion, rfc } = req.body;
 
     const result = await db.query(
       `UPDATE clientes
        SET nombre    = COALESCE($1, nombre),
            telefono  = COALESCE($2, telefono),
            email     = COALESCE($3, email),
-           direccion = COALESCE($4, direccion)
-       WHERE id = $5 AND empresa_id = $6
+           direccion = COALESCE($4, direccion),
+           rfc       = COALESCE($5, rfc)
+       WHERE id = $6 AND empresa_id = $7
        RETURNING *`,
-      [nombre, telefono, email, direccion, req.params.id, req.user.empresa_id]
+      [nombre, telefono, email, direccion, rfc ? rfc.toUpperCase() : null,
+       req.params.id, req.user.empresa_id]
     );
 
     if (!result.rows[0]) {

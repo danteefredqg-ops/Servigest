@@ -35,6 +35,7 @@
           <thead>
             <tr>
               <th>Nombre</th>
+              <th>RFC</th>
               <th>Teléfono</th>
               <th>Correo</th>
               <th>Pedidos</th>
@@ -43,7 +44,7 @@
             </tr>
           </thead>
           <tbody id="tabla-clientes">
-            <tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);padding:2rem">Cargando...</td></tr>
+            <tr><td colspan="7" style="text-align:center;color:var(--color-text-muted);padding:2rem">Cargando...</td></tr>
           </tbody>
         </table>
       </div>
@@ -63,6 +64,10 @@
       <div class="form-group">
         <label class="form-label">Nombre *</label>
         <input class="form-input" type="text" id="c-nombre" placeholder="Roberto López" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">RFC</label>
+        <input class="form-input" type="text" id="c-rfc" placeholder="ROBR800101AAA" maxlength="13" style="text-transform:uppercase" />
       </div>
       <div class="form-group">
         <label class="form-label">Teléfono</label>
@@ -110,6 +115,7 @@
                 <span style="font-size:13px;font-weight:500">${c.nombre}</span>
               </div>
             </td>
+            <td style="font-size:12px;font-family:monospace;color:var(--color-text-muted)">${c.rfc || '—'}</td>
             <td style="font-size:13px">${c.telefono || '—'}</td>
             <td style="font-size:13px;color:var(--color-text-muted)">${c.email || '—'}</td>
             <td style="font-size:13px">${c.total_pedidos}</td>
@@ -131,7 +137,7 @@
   document.getElementById('btn-nuevo').addEventListener('click', () => {
     document.getElementById('modal-titulo').textContent = 'Nuevo cliente';
     document.getElementById('cliente-id').value = '';
-    ['c-nombre','c-telefono','c-email','c-direccion'].forEach(id => document.getElementById(id).value = '');
+    ['c-nombre','c-rfc','c-telefono','c-email','c-direccion'].forEach(id => document.getElementById(id).value = '');
     openModal('modal-cliente');
   });
 
@@ -140,9 +146,10 @@
       const c = await api.clientes.get(id);
       document.getElementById('modal-titulo').textContent = 'Editar cliente';
       document.getElementById('cliente-id').value = c.id;
-      document.getElementById('c-nombre').value = c.nombre;
-      document.getElementById('c-telefono').value = c.telefono || '';
-      document.getElementById('c-email').value = c.email || '';
+      document.getElementById('c-nombre').value    = c.nombre;
+      document.getElementById('c-rfc').value       = c.rfc || '';
+      document.getElementById('c-telefono').value  = c.telefono || '';
+      document.getElementById('c-email').value     = c.email || '';
       document.getElementById('c-direccion').value = c.direccion || '';
       openModal('modal-cliente');
     } catch (err) {
@@ -154,6 +161,7 @@
     const id = document.getElementById('cliente-id').value;
     const body = {
       nombre:    document.getElementById('c-nombre').value,
+      rfc:       document.getElementById('c-rfc').value.toUpperCase() || null,
       telefono:  document.getElementById('c-telefono').value,
       email:     document.getElementById('c-email').value,
       direccion: document.getElementById('c-direccion').value,

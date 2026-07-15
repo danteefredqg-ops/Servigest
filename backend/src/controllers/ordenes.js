@@ -90,6 +90,7 @@ async function create(req, res, next) {
   try {
     const {
       cliente_id, descripcion, equipo, num_serie,
+      tipo_equipo, modelo,
       tecnico_id, prioridad = 'normal', fecha_prometida,
       items = [],
     } = req.body;
@@ -124,11 +125,13 @@ async function create(req, res, next) {
     const otRes = await client.query(
       `INSERT INTO ordenes_trabajo
          (empresa_id, cliente_id, tecnico_id, descripcion, equipo, num_serie,
-          prioridad, fecha_prometida, subtotal, impuestos, total)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+          tipo_equipo, modelo, prioridad, fecha_prometida, subtotal, impuestos, total)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
        RETURNING *`,
       [req.user.empresa_id, cliente_id, tecnico_id || null, descripcion,
-       equipo || null, num_serie || null, prioridad, fecha_prometida || null,
+       equipo || null, num_serie || null,
+       tipo_equipo || null, modelo || null,
+       prioridad, fecha_prometida || null,
        subtotal, impuestos, total]
     );
     const ot = otRes.rows[0];
@@ -404,4 +407,20 @@ async function historialSerie(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { getAll, getById, create, cambiarEstado, solicitarPieza, marcarPiezaDisponible, resumen, historialSerie };
+// ── Guardar cotización de reparación (JSON) ───────────────────────────────────
+async function guardarCotizacion(req, res, next) {
+  try {
+    const { conceptos } = req.body; // [{ descripcion, cantidad, precio_unit }]
+    if (!Array.isArray(conceptos)) return res.status(400).json({ error: 'conceptos debe ser un array' });
+
+    const result = await db.query(
+      `UPDATE ordenes_trabajo SET cotizacion_json = $1, updated_at = NOW()
+       WHERE id = $2 AND empresa_id = $3 RETURNING id, cotizacion_json`,
+      [JSON.stringify(conceptos), req.params.id, req.user.empresa_id]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Orden no encontrada' });
+    res.json(result.rows[0]);
+  } catch (err) { next(err); }
+}
+
+module.exports = { getAll, getById, create, cambiarEstado, solicitarPieza, marcarPiezaDisponible, resumen, historialSerie, guardarCotizacion };

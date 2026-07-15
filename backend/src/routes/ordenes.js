@@ -11,6 +11,7 @@ router.get('/',                         ctrl.getAll);
 router.get('/:id',                      ctrl.getById);
 router.post('/',                        ctrl.create);
 router.patch('/:id/estado',             ctrl.cambiarEstado);
+router.patch('/:id/cotizacion',         ctrl.guardarCotizacion);
 router.post('/:id/solicitar-pieza',     ctrl.solicitarPieza);
 router.post('/:id/pieza-disponible',    roles('admin','superadmin'), ctrl.marcarPiezaDisponible);
 

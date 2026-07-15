@@ -177,6 +177,7 @@ const api = {
     get:                  (id)      => api.get(`/ordenes/${id}`),
     create:               (b)       => api.post('/ordenes', b),
     cambiarEstado:        (id,b)    => api.patch(`/ordenes/${id}/estado`, b),
+    guardarCotizacion:    (id,b)    => api.patch(`/ordenes/${id}/cotizacion`, b),
     solicitarPieza:       (id,b)    => api.post(`/ordenes/${id}/solicitar-pieza`, b),
     marcarPiezaDisponible:(id,b)    => api.post(`/ordenes/${id}/pieza-disponible`, b),
     historialSerie:       (serie)   => api.get('/ordenes/historial-serie' + buildQuery({ serie })),
