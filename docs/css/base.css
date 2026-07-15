@@ -18,14 +18,14 @@
   --color-border:       rgba(0,0,0,0.09);
   --color-border-md:    rgba(0,0,0,0.16);
 
-  /* Sidebar oscuro */
-  --sidebar-bg:           #111827;
-  --sidebar-text:         rgba(249,250,251,0.50);
-  --sidebar-text-hover:   rgba(249,250,251,0.88);
-  --sidebar-text-active:  #34D399;
-  --sidebar-active-bg:    rgba(52,211,153,0.12);
-  --sidebar-hover-bg:     rgba(249,250,251,0.06);
-  --sidebar-border:       rgba(249,250,251,0.07);
+  /* Sidebar crema */
+  --sidebar-bg:           #F7F5F0;
+  --sidebar-text:         #6B7280;
+  --sidebar-text-hover:   #1E40AF;
+  --sidebar-text-active:  #065F46;
+  --sidebar-active-bg:    #E8F7F2;
+  --sidebar-hover-bg:     #EBF4FF;
+  --sidebar-border:       #E3DDD5;
 
   /* Estados de pedido */
   --estado-pendiente-bg:   #FEF3C7;
@@ -91,7 +91,7 @@ input, select, textarea { font-family: inherit; }
 .logo {
   font-size: 18px;
   font-weight: 600;
-  color: rgba(249,250,251,0.92);
+  color: var(--color-text);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -103,8 +103,8 @@ input, select, textarea { font-family: inherit; }
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--color-accent);
-  box-shadow: 0 0 10px rgba(29,158,117,0.7);
+  background: linear-gradient(135deg, #1D9E75 0%, #2563EB 100%);
+  box-shadow: 0 0 8px rgba(29,158,117,0.45);
 }
 
 /* ── Nav sidebar ─────────────────────────────────────────────────────────────── */
@@ -165,14 +165,14 @@ nav { display: flex; flex-direction: column; gap: 2px; }
 .btn-ghost { background: transparent; color: var(--color-text-muted); border-color: var(--color-border); }
 .btn-ghost:hover { background: var(--color-bg-tertiary); color: var(--color-text); }
 
-/* Botones dentro del sidebar (fondo oscuro) */
+/* Botones dentro del sidebar (fondo crema) */
 .sidebar .btn-ghost {
-  color: var(--sidebar-text);
-  border-color: var(--sidebar-border);
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
 }
 .sidebar .btn-ghost:hover {
-  background: var(--sidebar-hover-bg);
-  color: var(--sidebar-text-hover);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text);
 }
 
 .btn-sm { padding: 6px 12px; min-height: 32px; font-size: 13px; }
@@ -409,7 +409,7 @@ tbody tr:last-child td { border-bottom: none; }
   margin-top: auto;
   padding: 10px 12px;
   border-radius: var(--radius-md);
-  background: rgba(249,250,251,0.06);
+  background: rgba(0,0,0,0.04);
   border: 1px solid var(--sidebar-border);
   display: flex;
   align-items: center;
@@ -420,8 +420,8 @@ tbody tr:last-child td { border-bottom: none; }
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(52,211,153,0.18);
-  color: #34D399;
+  background: var(--color-accent-light);
+  color: var(--color-accent-dark);
   font-size: 12px;
   font-weight: 600;
   display: flex;
@@ -430,8 +430,8 @@ tbody tr:last-child td { border-bottom: none; }
   flex-shrink: 0;
 }
 
-.user-name    { font-size: 13px; font-weight: 500; color: rgba(249,250,251,0.85); }
-.user-empresa { font-size: 11px; color: rgba(249,250,251,0.35); }
+.user-name    { font-size: 13px; font-weight: 500; color: var(--color-text); }
+.user-empresa { font-size: 11px; color: var(--color-text-hint); }
 
 /* ── Responsive básico ───────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
