@@ -102,7 +102,7 @@
   }
 
   function resultItem(icon, title, sub, href) {
-    return `<a class="sg-result-item" href="${href}" onclick="closeSearch && closeSearch()" style="
+    return `<a class="sg-result-item" href="${href}" onclick="window.closeGlobalSearch && window.closeGlobalSearch()" style="
       display:flex;align-items:center;gap:12px;padding:10px 18px;text-decoration:none;
       color:var(--color-text);transition:background .1s;cursor:pointer;
     " onmouseenter="this.style.background='var(--color-bg-secondary)'" onmouseleave="this.style.background=''"
@@ -148,7 +148,7 @@
         p.nombre?.toLowerCase().includes(qLow) || p.sku?.toLowerCase().includes(qLow)
       ).slice(0, 5);
       const filtOr = (Array.isArray(or) ? or : []).filter(o =>
-        o.numero_ot?.toString().includes(q) || o.equipo?.toLowerCase().includes(qLow) ||
+        o.numero?.toString().includes(q) || o.equipo?.toLowerCase().includes(qLow) ||
         o.cliente_nombre?.toLowerCase().includes(qLow)
       ).slice(0, 5);
 
@@ -167,7 +167,7 @@
       if (filtOr.length) {
         html += groupHeader('Órdenes de Trabajo');
         filtOr.forEach(o => {
-          html += resultItem('🔧', `OT-${o.numero_ot} · ${o.cliente_nombre || ''}`, o.equipo || o.tipo_equipo || 'Sin descripción', LINKS.ordenes);
+          html += resultItem('🔧', `OT-${String(o.numero).padStart(4,'0')} · ${o.cliente_nombre || ''}`, o.equipo || o.tipo_equipo || 'Sin descripción', LINKS.ordenes);
         });
       }
 

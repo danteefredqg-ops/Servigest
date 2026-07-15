@@ -11,15 +11,15 @@ router.get('/ot/:numero', async (req, res, next) => {
     }
 
     const result = await db.query(
-      `SELECT ot.numero_ot, ot.equipo, ot.tipo_equipo, ot.modelo, ot.num_serie,
-              ot.descripcion, ot.estado, ot.fecha_entrega_est, ot.created_at,
+      `SELECT ot.numero AS numero_ot, ot.equipo, ot.tipo_equipo, ot.modelo, ot.num_serie,
+              ot.descripcion, ot.estado, ot.fecha_prometida, ot.created_at,
               c.nombre AS cliente_nombre,
               e.nombre AS empresa_nombre,
               e.direccion_fiscal AS empresa_dir
        FROM ordenes_trabajo ot
        JOIN clientes c ON c.id = ot.cliente_id
        JOIN empresas e ON e.id = ot.empresa_id
-       WHERE ot.numero_ot = $1`,
+       WHERE ot.numero = $1`,
       [numero]
     );
 
@@ -28,14 +28,13 @@ router.get('/ot/:numero', async (req, res, next) => {
     }
 
     const ot = result.rows[0];
-    // Solo devolver campos seguros (sin datos internos)
     res.json({
       numero_ot:       ot.numero_ot,
       equipo:          [ot.tipo_equipo, ot.modelo, ot.equipo].filter(Boolean).join(' · '),
       num_serie:       ot.num_serie,
       descripcion:     ot.descripcion,
       estado:          ot.estado,
-      fecha_entrega:   ot.fecha_entrega_est,
+      fecha_entrega:   ot.fecha_prometida,
       creado:          ot.created_at,
       cliente_nombre:  ot.cliente_nombre,
       empresa_nombre:  ot.empresa_nombre,

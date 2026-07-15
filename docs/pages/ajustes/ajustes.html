@@ -636,7 +636,7 @@
   async function exportar(tipo) {
     try {
       const token = api.getToken();
-      const url   = (typeof CONFIG !== 'undefined' ? CONFIG.API_URL : 'https://servigest-production-a7c5.up.railway.app/api');
+      const url   = (typeof CONFIG !== 'undefined' ? CONFIG.API_URL : null) || 'https://quintero-facturacion.up.railway.app/api';
       const endpointMap = { clientes: '/clientes/export', pedidos: '/pedidos/export', cxc: '/cxc/export' };
       const res   = await fetch(url + endpointMap[tipo], {
         headers: { Authorization: `Bearer ${token}` }
