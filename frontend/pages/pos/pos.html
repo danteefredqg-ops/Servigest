@@ -444,9 +444,28 @@ async function getClienteGenerico() {
 }
 
 // ── Imprimir ticket ───────────────────────────────────────────────────────────
+let empresaData = null;
+
+async function cargarEmpresaData() {
+  try { empresaData = await api.get('/auth/me'); } catch(_) {}
+}
+
 function imprimirTicket(pedido, metodo) {
-  const empresa = api.getUser()?.empresa_nombre || 'ServiGest';
-  const fecha   = new Intl.DateTimeFormat('es-MX', {
+  const user    = api.getUser();
+  const emp     = empresaData || {};
+  const nombre  = emp.empresa_nombre || user?.empresa_nombre || 'ServiGest';
+  const rfc     = emp.rfc            || '';
+  const dir     = emp.direccion_fiscal || '';
+  const cp      = emp.cp             || '';
+
+  const metodosLabel = {
+    efectivo: 'Efectivo', transferencia: 'Transferencia SPEI',
+    tarjeta_debito: 'Tarjeta débito', tarjeta_credito: 'Tarjeta crédito',
+    cheque: 'Cheque', credito: 'Crédito cliente',
+    parcialidades: 'Parcialidades', por_definir: 'Por definir',
+  };
+
+  const fecha = new Intl.DateTimeFormat('es-MX', {
     day:'numeric', month:'short', year:'numeric',
     hour:'2-digit', minute:'2-digit'
   }).format(new Date());
@@ -457,33 +476,58 @@ function imprimirTicket(pedido, metodo) {
 
   const itemsHTML = carrito.map(i => `
     <tr>
-      <td style="padding:2px 0">${i.producto.nombre}</td>
-      <td style="text-align:center">${i.cantidad}</td>
-      <td style="text-align:right">${formatMoney(i.producto.precio * i.cantidad)}</td>
+      <td style="padding:4px 0;vertical-align:top">${i.producto.nombre}${i.producto.sku ? '<br><span style="font-size:9px;color:#666">SKU: '+i.producto.sku+'</span>' : ''}</td>
+      <td style="text-align:center;vertical-align:top">${i.cantidad}</td>
+      <td style="text-align:right;vertical-align:top;white-space:nowrap">${formatMoney(i.producto.precio)}</td>
+      <td style="text-align:right;vertical-align:top;white-space:nowrap;font-weight:600">${formatMoney(i.producto.precio * i.cantidad)}</td>
     </tr>`).join('');
 
   document.getElementById('ticket-print').innerHTML = `
-    <div style="text-align:center;padding:10px 0;border-bottom:1px dashed #000;margin-bottom:8px">
-      <div style="font-size:16px;font-weight:bold">${empresa}</div>
-      <div style="font-size:11px">${fecha}</div>
-      <div style="font-size:11px">Folio: #${String(pedido.numero).padStart(4,'0')}</div>
+    <div style="text-align:center;padding:12px 0 10px;border-bottom:2px solid #000;margin-bottom:10px">
+      <div style="font-size:18px;font-weight:900;letter-spacing:-0.3px">${nombre}</div>
+      ${rfc  ? `<div style="font-size:10px;margin-top:2px">RFC: ${rfc}</div>` : ''}
+      ${dir  ? `<div style="font-size:10px">${dir}${cp ? ', C.P. '+cp : ''}</div>` : ''}
+      <div style="margin-top:8px;height:2px;background:repeating-linear-gradient(90deg,#000 0,#000 4px,transparent 4px,transparent 8px)"></div>
+      <div style="margin-top:8px;font-size:20px;font-weight:900;letter-spacing:1px">TICKET DE VENTA</div>
+      <div style="font-size:11px;margin-top:2px">${fecha}</div>
+      <div style="font-size:12px;font-weight:700;margin-top:4px">Folio: #${String(pedido.numero).padStart(4,'0')}</div>
     </div>
+
     <table style="width:100%;border-collapse:collapse;font-size:11px">
-      <thead><tr>
-        <th style="text-align:left;border-bottom:1px solid #000;padding:2px 0">Producto</th>
-        <th style="text-align:center;border-bottom:1px solid #000">Cant</th>
-        <th style="text-align:right;border-bottom:1px solid #000">Total</th>
-      </tr></thead>
-      <tbody>${itemsHTML}</tbody>
+      <thead>
+        <tr style="border-bottom:1px solid #000">
+          <th style="text-align:left;padding:3px 0">Producto</th>
+          <th style="text-align:center">Cant</th>
+          <th style="text-align:right">P/U</th>
+          <th style="text-align:right">Importe</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itemsHTML}
+      </tbody>
     </table>
-    <div style="border-top:1px dashed #000;margin-top:8px;padding-top:8px;font-size:12px">
-      <div style="display:flex;justify-content:space-between"><span>Subtotal</span><span>${formatMoney(subtotal)}</span></div>
-      <div style="display:flex;justify-content:space-between"><span>IVA 16%</span><span>${formatMoney(iva)}</span></div>
-      <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:14px;margin-top:4px"><span>TOTAL</span><span>${formatMoney(total)}</span></div>
-      <div style="margin-top:6px;font-size:11px">Pago: ${metodo}</div>
+
+    <div style="border-top:2px solid #000;margin-top:8px;padding-top:8px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0">
+        <span>Subtotal</span><span>${formatMoney(subtotal)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0">
+        <span>IVA 16%</span><span>${formatMoney(iva)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:900;
+           border-top:1px solid #000;margin-top:6px;padding-top:6px">
+        <span>TOTAL</span><span>${formatMoney(total)}</span>
+      </div>
+      <div style="margin-top:8px;padding:6px 8px;background:#f5f5f5;border-radius:4px;font-size:11px;text-align:center;font-weight:600">
+        Forma de pago: ${metodosLabel[metodo] || metodo}
+      </div>
     </div>
-    <div style="text-align:center;margin-top:10px;font-size:10px;border-top:1px dashed #000;padding-top:8px">
-      ¡Gracias por su compra!<br>Powered by ServiGest
+
+    <div style="text-align:center;margin-top:12px;font-size:10px;
+         border-top:2px dashed #000;padding-top:10px;line-height:1.7">
+      ¡Gracias por su compra!<br>
+      Conserve este ticket para cualquier aclaración.<br>
+      <span style="font-size:9px;color:#666">Generado con ServiGest</span>
     </div>
   `;
 
@@ -491,6 +535,7 @@ function imprimirTicket(pedido, metodo) {
 }
 
 init();
+cargarEmpresaData();
 </script>
 </body>
 </html>

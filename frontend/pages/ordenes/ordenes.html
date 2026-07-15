@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8"/>
@@ -40,6 +40,12 @@
     .col-en_espera  .kanban-header { background:#FAEEDA; color:#854F0B; }
     .col-terminada  .kanban-header { background:#EAF3DE; color:#3B6D11; }
     .col-entregada  .kanban-header { background:#F1EFE8; color:#5F5E5A; }
+
+    /* ── Drag-and-drop ───────────────────────────────────────────────────── */
+    .ot-card[draggable="true"] { cursor:grab; }
+    .ot-card[draggable="true"]:active { cursor:grabbing; }
+    .ot-card.dragging { opacity:.45; transform:rotate(1.5deg); box-shadow:var(--shadow-md); }
+    .kanban-body.drag-over { background:rgba(29,158,117,.07); border:2px dashed var(--color-accent); border-radius:var(--radius-md); }
 
     /* ── Panel detalle OT ────────────────────────────────────────────────── */
     .det-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:100; }
@@ -434,7 +440,7 @@
 <script src="../../js/config.js"></script>
 <script src="../../js/api.js"></script>
 <script src="../../js/auth.js"></script>
-<script src="../../js/sidebar.js"></script>
+<script src="../../js/sidebar.js"></script>`n  <script src="../../js/global-search.js"></script>
 <script>
 requireAuth();
 initSidebar('ordenes');
@@ -483,11 +489,12 @@ function renderKanban() {
           <span>${e.label}</span>
           <span style="background:rgba(0,0,0,.1);padding:1px 7px;border-radius:10px;font-size:11px">${ots.length}</span>
         </div>
-        <div class="kanban-body">
-          ${ots.length ? ots.map(o => otCard(o)).join('') : '<div style="font-size:12px;color:var(--color-text-hint);text-align:center;padding:1rem">Sin órdenes</div>'}
+        <div class="kanban-body" data-estado="${e.id}">
+          ${ots.length ? ots.map(o => otCard(o)).join('') : '<div class="kanban-empty" style="font-size:12px;color:var(--color-text-hint);text-align:center;padding:1rem">Sin órdenes</div>'}
         </div>
       </div>`;
   }).join('');
+  initKanbanDragDrop();
 }
 
 function otCard(o) {
@@ -495,7 +502,9 @@ function otCard(o) {
   const faltan = Number(o.items_faltantes) > 0;
   const alerta = Number(o.alertas_abiertas) > 0;
   return `
-    <div class="ot-card ${prio} ${alerta ? 'tiene-alertas' : ''}" onclick="verDetalle('${o.id}')">
+    <div class="ot-card ${prio} ${alerta ? 'tiene-alertas' : ''}"
+         draggable="true" data-id="${o.id}" data-estado="${o.estado}"
+         onclick="verDetalle('${o.id}')">
       <div class="ot-num">#${String(o.numero).padStart(4,'0')}</div>
       <div class="ot-equipo">${o.equipo || o.descripcion}</div>
       <div class="ot-cliente">${o.cliente_nombre}</div>
@@ -509,6 +518,58 @@ function otCard(o) {
       </div>
       ${o.fecha_prometida ? `<div style="font-size:10px;color:var(--color-text-hint);margin-top:4px">📅 ${formatDate(o.fecha_prometida)}</div>` : ''}
     </div>`;
+}
+
+// ── Drag-and-drop Kanban ─────────────────────────────────────────────────────
+let draggedOTId = null;
+let draggedOTEstado = null;
+
+function initKanbanDragDrop() {
+  document.querySelectorAll('.ot-card[draggable]').forEach(card => {
+    card.addEventListener('dragstart', e => {
+      draggedOTId    = card.dataset.id;
+      draggedOTEstado = card.dataset.estado;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      // Detener propagación para que onclick no se dispare en drag
+      e.stopPropagation();
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+    });
+    // Evitar que el click se dispare al soltar
+    card.addEventListener('click', e => {
+      if (e.defaultPrevented) return;
+    });
+  });
+
+  document.querySelectorAll('.kanban-body').forEach(col => {
+    col.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      col.classList.add('drag-over');
+    });
+    col.addEventListener('dragleave', e => {
+      if (!col.contains(e.relatedTarget)) col.classList.remove('drag-over');
+    });
+    col.addEventListener('drop', async e => {
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      const nuevoEstado = col.dataset.estado;
+      if (!draggedOTId || nuevoEstado === draggedOTEstado) return;
+
+      try {
+        await api.ordenes.cambiarEstado(draggedOTId, { estado: nuevoEstado });
+        // Actualizar en memoria y re-renderizar
+        const ot = todasOTs.find(o => o.id === draggedOTId);
+        if (ot) ot.estado = nuevoEstado;
+        renderKanban();
+        showToast(`OT movida a ${nuevoEstado.replace('_',' ')}`);
+      } catch(err) {
+        showToast('Error al mover OT: ' + err.message, 'error');
+      }
+    });
+  });
 }
 
 // ── Lista ─────────────────────────────────────────────────────────────────────

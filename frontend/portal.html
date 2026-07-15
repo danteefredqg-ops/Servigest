@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Consultar mi Orden de Trabajo — ServiGest</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    body {
+      font-family:'Inter',sans-serif; background:#F5F4F1;
+      min-height:100vh; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; padding:2rem;
+      color:#18181B;
+    }
+    .card {
+      background:#fff; border-radius:16px; padding:2rem;
+      width:100%; max-width:500px;
+      box-shadow:0 4px 24px rgba(0,0,0,.08);
+    }
+    .logo { display:flex; align-items:center; gap:8px; font-size:18px; font-weight:600; margin-bottom:2rem; }
+    .logo-dot { width:10px; height:10px; border-radius:50%;
+      background:linear-gradient(135deg,#1D9E75,#2563EB);
+      box-shadow:0 0 8px rgba(29,158,117,.4); }
+    h2 { font-size:20px; font-weight:600; margin-bottom:6px; }
+    p  { font-size:13px; color:#6B7280; margin-bottom:1.5rem; }
+
+    .input-row { display:flex; gap:10px; }
+    input[type="number"] {
+      flex:1; padding:12px 16px; border:1.5px solid #D1D5DB;
+      border-radius:10px; font-size:15px; font-family:inherit;
+      outline:none; transition:border-color .15s;
+    }
+    input[type="number"]:focus { border-color:#1D9E75; }
+    button {
+      padding:12px 20px; border-radius:10px; font-size:14px; font-weight:500;
+      cursor:pointer; font-family:inherit; border:none;
+      background:linear-gradient(135deg,#1D9E75,#0F6E56); color:#fff;
+      white-space:nowrap;
+    }
+    button:active { opacity:.85; }
+
+    #resultado { margin-top:1.5rem; }
+
+    .estado-card {
+      border:1.5px solid #E5E7EB; border-radius:12px; padding:1.25rem;
+      display:flex; flex-direction:column; gap:10px;
+    }
+    .estado-header { display:flex; align-items:center; justify-content:space-between; }
+    .ot-num { font-size:20px; font-weight:700; color:#1D9E75; }
+    .badge {
+      padding:4px 12px; border-radius:20px; font-size:12px; font-weight:600;
+    }
+    .badge-recibida    { background:#EDE9FE; color:#5B21B6; }
+    .badge-en_proceso  { background:#DBEAFE; color:#1E40AF; }
+    .badge-en_espera   { background:#FEF3C7; color:#92400E; }
+    .badge-terminada   { background:#D1FAE5; color:#065F46; }
+    .badge-entregada   { background:#D1FAE5; color:#065F46; }
+    .badge-cancelada   { background:#FEE2E2; color:#991B1B; }
+
+    .timeline { display:flex; gap:0; margin:8px 0; }
+    .tl-step {
+      flex:1; text-align:center; font-size:10px; font-weight:500;
+      color:#9CA3AF; padding:0 4px;
+      position:relative;
+    }
+    .tl-step::before {
+      content:''; display:block; width:100%; height:4px;
+      background:#E5E7EB; border-radius:2px; margin-bottom:5px;
+    }
+    .tl-step.done::before { background:#1D9E75; }
+    .tl-step.current::before { background:#2563EB; }
+    .tl-step.done, .tl-step.current { color:#374151; }
+
+    .info-row { display:flex; gap:8px; font-size:13px; }
+    .info-label { color:#6B7280; min-width:90px; }
+    .info-value { color:#18181B; font-weight:500; }
+
+    .empresa-footer {
+      margin-top:12px; padding-top:12px;
+      border-top:1px solid #F3F4F6;
+      font-size:12px; color:#9CA3AF; text-align:center;
+    }
+
+    .error-box {
+      background:#FEF2F2; border:1px solid #FECACA;
+      border-radius:10px; padding:1rem;
+      font-size:13px; color:#991B1B; text-align:center;
+    }
+
+    footer { margin-top:2rem; font-size:12px; color:#9CA3AF; text-align:center; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo"><div class="logo-dot"></div>ServiGest</div>
+  <h2>Consultar orden de trabajo</h2>
+  <p>Ingresa el número de tu OT para ver el estado de reparación o servicio.</p>
+
+  <div class="input-row">
+    <input id="inp-ot" type="number" placeholder="Ej. 1042" min="1" />
+    <button onclick="consultar()">Consultar</button>
+  </div>
+
+  <div id="resultado"></div>
+</div>
+
+<footer>Powered by <strong>ServiGest</strong> — Sistema de gestión para talleres y servicios</footer>
+
+<script>
+  const API_URL = 'https://servigest-production-a7c5.up.railway.app/api';
+
+  const ESTADOS = ['recibida','en_proceso','en_espera','terminada','entregada'];
+  const ESTADO_LABELS = {
+    recibida:   'Recibida',
+    en_proceso: 'En proceso',
+    en_espera:  'En espera pieza',
+    terminada:  'Terminada',
+    entregada:  'Entregada',
+    cancelada:  'Cancelada',
+  };
+
+  document.getElementById('inp-ot').addEventListener('keydown', e => {
+    if (e.key === 'Enter') consultar();
+  });
+
+  async function consultar() {
+    const num = document.getElementById('inp-ot').value.trim();
+    const el  = document.getElementById('resultado');
+    if (!num) { el.innerHTML = '<div class="error-box">Ingresa un número de OT válido.</div>'; return; }
+
+    el.innerHTML = '<div style="padding:1rem;text-align:center;color:#6B7280;font-size:13px">Buscando...</div>';
+
+    try {
+      const res  = await fetch(`${API_URL}/portal/ot/${encodeURIComponent(num)}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        el.innerHTML = `<div class="error-box">${data.error || 'Orden no encontrada.'}</div>`;
+        return;
+      }
+
+      const estadoIdx = ESTADOS.indexOf(data.estado);
+      const isCancelada = data.estado === 'cancelada';
+
+      const timelineHtml = isCancelada ? '' : `
+        <div class="timeline">
+          ${ESTADOS.slice(0,4).map((s, i) => `
+            <div class="tl-step ${i < estadoIdx ? 'done' : i === estadoIdx ? 'current' : ''}">
+              <div></div>${ESTADO_LABELS[s] || s}
+            </div>`).join('')}
+        </div>`;
+
+      const fechaEntrega = data.fecha_entrega
+        ? new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'long',year:'numeric'}).format(new Date(data.fecha_entrega))
+        : 'Por confirmar';
+
+      const fecha = data.creado
+        ? new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short',year:'numeric'}).format(new Date(data.creado))
+        : '—';
+
+      el.innerHTML = `
+        <div class="estado-card">
+          <div class="estado-header">
+            <div class="ot-num">OT-${data.numero_ot}</div>
+            <span class="badge badge-${data.estado}">${ESTADO_LABELS[data.estado] || data.estado}</span>
+          </div>
+
+          ${timelineHtml}
+
+          <div class="info-row"><span class="info-label">Equipo:</span><span class="info-value">${data.equipo || '—'}</span></div>
+          ${data.num_serie ? `<div class="info-row"><span class="info-label">No. Serie:</span><span class="info-value">${data.num_serie}</span></div>` : ''}
+          ${data.descripcion ? `<div class="info-row"><span class="info-label">Descripción:</span><span class="info-value">${data.descripcion}</span></div>` : ''}
+          <div class="info-row"><span class="info-label">Ingresó:</span><span class="info-value">${fecha}</span></div>
+          <div class="info-row"><span class="info-label">Entrega est.:</span><span class="info-value">${fechaEntrega}</span></div>
+
+          <div class="empresa-footer">
+            Atendido por <strong>${data.empresa_nombre}</strong>
+            ${data.empresa_dir ? '<br>' + data.empresa_dir : ''}
+          </div>
+        </div>`;
+    } catch(err) {
+      el.innerHTML = `<div class="error-box">Error de conexión. Intenta de nuevo.</div>`;
+    }
+  }
+</script>
+</body>
+</html>

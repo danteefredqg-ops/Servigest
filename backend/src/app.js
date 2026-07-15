@@ -23,6 +23,8 @@ const alertasRoutes      = require('./routes/alertas');
 const cajaRoutes         = require('./routes/caja');
 const garantiasRoutes    = require('./routes/garantias');
 const modulosRoutes      = require('./routes/modulos');
+const backupRoutes       = require('./routes/backup');
+const portalRoutes       = require('./routes/portal');
 const errorHandler       = require('./middleware/errorHandler');
 
 const app  = express();
@@ -86,6 +88,8 @@ app.use('/api/alertas',      alertasRoutes);
 app.use('/api/caja',         cajaRoutes);
 app.use('/api/garantias',    garantiasRoutes);
 app.use('/api/modulos',     modulosRoutes);
+app.use('/api/backup',      backupRoutes);
+app.use('/api/portal',      portalRoutes);
 
 // Health check — Railway lo usa para verificar que el servicio vive
 app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date() }));

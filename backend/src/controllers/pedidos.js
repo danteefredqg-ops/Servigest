@@ -235,4 +235,41 @@ async function getSummary(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { getAll, getById, create, update, remove, getSummary };
+async function exportExcel(req, res, next) {
+  try {
+    const XLSX = require('xlsx');
+    const { desde, hasta } = req.query;
+    let query = `
+      SELECT p.numero, c.nombre AS cliente, p.descripcion, p.total, p.estado,
+             p.forma_pago, p.created_at, p.fecha_servicio
+      FROM pedidos p
+      JOIN clientes c ON c.id = p.cliente_id
+      WHERE p.empresa_id = $1`;
+    const params = [req.user.empresa_id];
+    let idx = 2;
+    if (desde) { query += ` AND p.created_at >= $${idx++}`; params.push(desde); }
+    if (hasta) { query += ` AND p.created_at <= $${idx++}`; params.push(hasta); }
+    query += ' ORDER BY p.created_at DESC';
+
+    const result = await db.query(query, params);
+    const rows = result.rows.map(r => ({
+      'Folio':           r.numero || '',
+      'Cliente':         r.cliente,
+      'Descripción':     r.descripcion || '',
+      'Total':           Number(r.total),
+      'Estado':          r.estado,
+      'Forma de Pago':   r.forma_pago || '',
+      'Fecha':           r.created_at ? new Date(r.created_at).toLocaleDateString('es-MX') : '',
+      'Fecha Servicio':  r.fecha_servicio ? new Date(r.fecha_servicio).toLocaleDateString('es-MX') : '',
+    }));
+    const ws  = XLSX.utils.json_to_sheet(rows);
+    const wb  = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Pedidos');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+               'Content-Disposition': 'attachment; filename="pedidos.xlsx"' });
+    res.send(buf);
+  } catch(err) { next(err); }
+}
+
+module.exports = { getAll, getById, create, update, remove, getSummary, exportExcel };

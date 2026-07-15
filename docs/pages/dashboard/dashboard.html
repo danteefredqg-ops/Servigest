@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
@@ -33,6 +33,14 @@
     .chart-bar:hover { opacity:1; }
     .chart-label { font-size:10px; color:var(--color-text-hint); white-space:nowrap; }
     .chart-val   { font-size:9px; color:var(--color-text-muted); }
+
+    /* ── Gráfica mensual ─────────────────────────────────────────────────── */
+    .chart-monthly-wrap { display:flex; align-items:flex-end; gap:8px; height:100px; padding:0 4px; }
+    .chart-monthly-bar-col { display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; min-width:0; }
+    .chart-monthly-bar { width:100%; border-radius:6px 6px 0 0; background:linear-gradient(180deg,#2563EB,#1D4ED8); opacity:.75; transition:opacity .15s, height .5s ease; min-height:3px; }
+    .chart-monthly-bar:hover { opacity:1; }
+    .chart-monthly-label { font-size:10px; color:var(--color-text-hint); white-space:nowrap; }
+    .chart-monthly-val   { font-size:9px; color:var(--color-text-muted); }
 
     /* ── Actividad reciente ───────────────────────────────────────────────── */
     .act-item { display:flex; align-items:flex-start; gap:10px; padding:9px 0; border-bottom:1px solid var(--color-border); }
@@ -242,6 +250,21 @@
 
     </div>
 
+    <!-- Fila: Tendencia 6 meses -->
+    <div class="card mt-2">
+      <div class="flex-between" style="margin-bottom:1.25rem">
+        <span style="font-size:14px;font-weight:500">Tendencia de ingresos — últimos 6 meses</span>
+        <a href="../finanzas/finanzas.html" style="font-size:12px;color:var(--color-accent)">Ver finanzas →</a>
+      </div>
+      <div class="chart-monthly-wrap" id="chart-mensual">
+        <div style="margin:auto;color:var(--color-text-hint);font-size:13px">Cargando...</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid var(--color-border)">
+        <div style="font-size:12px;color:var(--color-text-muted)">Promedio mensual</div>
+        <div style="font-size:13px;font-weight:600;color:#185FA5" id="chart-mensual-prom">—</div>
+      </div>
+    </div>
+
     <!-- Fila: Pedidos recientes + Top clientes -->
     <div class="grid-2 mt-2">
 
@@ -273,7 +296,7 @@
 <script src="../../js/config.js"></script>
 <script src="../../js/api.js"></script>
 <script src="../../js/auth.js"></script>
-<script src="../../js/sidebar.js"></script>
+<script src="../../js/sidebar.js"></script>`n  <script src="../../js/global-search.js"></script>
 <script>
 requireAuth();
 
@@ -344,13 +367,14 @@ async function loadOnboarding() {
 // ── Dashboard principal ───────────────────────────────────────────────────────
 async function loadDashboard() {
   try {
-    const [dash, pedidos, cxc, stockBajo, clientes, ingresos7] = await Promise.all([
+    const [dash, pedidos, cxc, stockBajo, clientes, ingresos7, ingresos180] = await Promise.all([
       api.get('/reportes/dashboard'),
       api.get('/pedidos?limit=6'),
       api.get('/cxc?estado=pendiente'),
       api.get('/productos/stock-bajo'),
       api.get('/clientes'),
       api.get('/reportes/ingresos?dias=7'),
+      api.get('/reportes/ingresos?dias=180'),
     ]);
 
     // ── KPIs fila 1 ────────────────────────────────────────────────────────
@@ -509,6 +533,42 @@ async function loadDashboard() {
       }).join('');
     }
 
+    // ── Gráfica tendencia 6 meses (agrupada por mes) ──────────────────────
+    const chartMensual = document.getElementById('chart-mensual');
+    if (!ingresos180 || !ingresos180.length) {
+      chartMensual.innerHTML = '<div style="margin:auto;color:var(--color-text-hint);font-size:13px">Sin datos</div>';
+    } else {
+      // Agrupar por mes YYYY-MM
+      const meses = {};
+      ingresos180.forEach(d => {
+        const m = (d.fecha || '').slice(0, 7);
+        if (m) meses[m] = (meses[m] || 0) + Number(d.ingresos);
+      });
+      // Generar últimos 6 meses aunque estén vacíos
+      const meses6 = [];
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(1); d.setMonth(d.getMonth() - i);
+        const key  = d.toISOString().slice(0, 7);
+        const label = new Intl.DateTimeFormat('es-MX', { month: 'short' }).format(d);
+        meses6.push({ key, label, total: meses[key] || 0 });
+      }
+      const maxM = Math.max(...meses6.map(m => m.total), 1);
+      const promedio = meses6.reduce((s, m) => s + m.total, 0) / meses6.length;
+      document.getElementById('chart-mensual-prom').textContent = formatMoney(promedio);
+
+      chartMensual.innerHTML = meses6.map(m => {
+        const pct = Math.round((m.total / maxM) * 100);
+        const val = m.total > 0 ? formatMoney(m.total).replace('$','').replace(',000','k') : '';
+        return `
+          <div class="chart-monthly-bar-col" title="${formatMoney(m.total)}">
+            <div class="chart-monthly-val">${val}</div>
+            <div class="chart-monthly-bar" style="height:${Math.max(pct, m.total > 0 ? 4 : 0)}%"></div>
+            <div class="chart-monthly-label">${m.label}</div>
+          </div>`;
+      }).join('');
+    }
+
     // ── Actividad reciente (simulada desde pedidos) ───────────────────────
     const actEl = document.getElementById('actividad-wrap');
     const acts  = pedidos.slice(0,6).map(p => ({
@@ -553,6 +613,9 @@ function timeAgo(iso) {
 
 loadOnboarding();
 loadDashboard();
+
+// Generar recordatorios de CxC en segundo plano (sin bloquear UI)
+api.post('/cxc/recordatorios', {}).catch(() => {});
 </script>
 </body>
 </html>

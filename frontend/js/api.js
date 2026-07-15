@@ -157,10 +157,11 @@ const api = {
 
   // ── CxC ───────────────────────────────────────────────────────────────────
   cxc: {
-    resumen: ()       => api.get('/cxc/resumen'),
-    list:    (f={})   => api.get('/cxc' + buildQuery(f)),
-    create:  (b)      => api.post('/cxc', b),
-    pago:    (id,b)   => api.post(`/cxc/${id}/pago`, b),
+    resumen:       ()       => api.get('/cxc/resumen'),
+    list:          (f={})   => api.get('/cxc' + buildQuery(f)),
+    create:        (b)      => api.post('/cxc', b),
+    pago:          (id,b)   => api.post(`/cxc/${id}/pago`, b),
+    recordatorios: ()       => api.post('/cxc/recordatorios', {}),
   },
 
   // ── Compras ───────────────────────────────────────────────────────────────
@@ -260,6 +261,9 @@ const api = {
     list:   ()          => api.get('/modulos'),
     toggle: (id, activo) => api.patch(`/modulos/${id}`, { activo }),
   },
+
+  // ── Backup ────────────────────────────────────────────────────────────────
+  backup: () => api.get('/backup'),
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

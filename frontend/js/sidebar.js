@@ -66,6 +66,24 @@ function invalidarCacheModulos() {
   localStorage.removeItem(SG_MODULOS_CACHE_KEY);
 }
 
+// ── Modo oscuro ───────────────────────────────────────────────────────────────
+function initTheme() {
+  const saved = localStorage.getItem('sg_theme') || 'light';
+  document.documentElement.setAttribute('data-theme', saved);
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('sg_theme', next);
+  const btn = document.getElementById('btn-theme-toggle');
+  if (btn) btn.textContent = next === 'dark' ? '☀️' : '🌙';
+  btn && (btn.title = next === 'dark' ? 'Modo claro' : 'Modo oscuro');
+}
+
+initTheme();
+
 async function buildSidebar(activeId) {
   const nav = document.getElementById('sidebar-nav');
   if (!nav) return;
@@ -101,6 +119,43 @@ async function buildSidebar(activeId) {
     // Re-aplicar permisos por rol después del segundo render (el primero ya fue procesado
     // por Permisos.aplicar() que se dispara 100 ms después de initSidebar)
     if (typeof Permisos !== 'undefined') Permisos.aplicar();
+  }
+
+  // Inyectar buscador rápido encima de la nav
+  if (!document.getElementById('sg-search-btn')) {
+    const searchBtn = document.createElement('button');
+    searchBtn.id = 'sg-search-btn';
+    searchBtn.title = 'Búsqueda global (Ctrl+K)';
+    searchBtn.style.cssText = [
+      'display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;',
+      'background:var(--color-bg-secondary);border:1px solid var(--color-border-md);',
+      'border-radius:8px;font-size:12px;color:var(--color-text-hint);cursor:pointer;',
+      'font-family:inherit;margin-bottom:8px;transition:border-color .15s;',
+    ].join('');
+    searchBtn.innerHTML = `
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <span style="flex:1;text-align:left">Buscar...</span>
+      <kbd style="font-size:10px;background:var(--color-bg-tertiary);padding:1px 5px;border-radius:4px">⌃K</kbd>`;
+    searchBtn.onclick = () => typeof openGlobalSearch === 'function' && openGlobalSearch();
+    nav.parentNode.insertBefore(searchBtn, nav);
+  }
+
+  // Inyectar botones de utilidad al final del sidebar
+  const sidebarEl = nav.closest('.sidebar');
+  if (sidebarEl && !sidebarEl.querySelector('#btn-theme-toggle')) {
+    const themeBtn = document.createElement('button');
+    themeBtn.id = 'btn-theme-toggle';
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    themeBtn.textContent = isDark ? '☀️' : '🌙';
+    themeBtn.title = isDark ? 'Modo claro' : 'Modo oscuro';
+    themeBtn.style.cssText = 'position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:18px;cursor:pointer;padding:4px;border-radius:6px;opacity:.6;transition:opacity .15s;';
+    themeBtn.onmouseenter = () => themeBtn.style.opacity = '1';
+    themeBtn.onmouseleave = () => themeBtn.style.opacity = '.6';
+    themeBtn.onclick = toggleTheme;
+    sidebarEl.style.position = 'relative';
+    sidebarEl.appendChild(themeBtn);
   }
 
   setTimeout(actualizarBadgeAlertas, 500);

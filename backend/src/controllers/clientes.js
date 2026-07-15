@@ -110,4 +110,36 @@ async function remove(req, res, next) {
   }
 }
 
-module.exports = { getAll, getById, create, update, remove };
+async function exportExcel(req, res, next) {
+  try {
+    const XLSX = require('xlsx');
+    const result = await db.query(
+      `SELECT c.nombre, c.telefono, c.email, c.direccion, c.rfc,
+              COUNT(p.id) AS total_pedidos,
+              COALESCE(SUM(p.total) FILTER (WHERE p.estado='entregado'), 0) AS total_facturado
+       FROM clientes c
+       LEFT JOIN pedidos p ON p.cliente_id = c.id AND p.empresa_id = c.empresa_id
+       WHERE c.empresa_id = $1
+       GROUP BY c.id ORDER BY c.nombre ASC`,
+      [req.user.empresa_id]
+    );
+    const rows = result.rows.map(r => ({
+      Nombre:           r.nombre,
+      Teléfono:         r.telefono || '',
+      Email:            r.email    || '',
+      Dirección:        r.direccion || '',
+      RFC:              r.rfc      || '',
+      'Total Pedidos':  Number(r.total_pedidos),
+      'Total Facturado': Number(r.total_facturado),
+    }));
+    const ws  = XLSX.utils.json_to_sheet(rows);
+    const wb  = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Clientes');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+               'Content-Disposition': 'attachment; filename="clientes.xlsx"' });
+    res.send(buf);
+  } catch(err) { next(err); }
+}
+
+module.exports = { getAll, getById, create, update, remove, exportExcel };

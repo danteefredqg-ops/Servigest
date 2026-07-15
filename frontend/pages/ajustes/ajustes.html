@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
@@ -46,6 +46,7 @@
       <button class="tab-btn" data-tab="planes">Plan y suscripción</button>
       <button class="tab-btn" data-tab="cuenta">Mi cuenta</button>
       <button class="tab-btn" data-tab="seguridad">Seguridad</button>
+      <button class="tab-btn" data-tab="datos">Datos y backup</button>
       <button class="tab-btn" data-tab="modulos">Módulos</button>
     </div>
 
@@ -280,6 +281,79 @@
       </div>
     </div>
 
+    <!-- Tab: Datos y backup -->
+    <div class="tab-panel" id="tab-datos">
+      <div class="settings-section">
+        <h3 style="font-size:15px;font-weight:500;margin-bottom:6px">Exportar y respaldar datos</h3>
+        <p style="font-size:13px;color:var(--color-text-muted);margin-bottom:1.5rem">
+          Descarga tus datos para tenerlos en tu computadora o migrarlos a otro sistema.
+        </p>
+
+        <div style="display:flex;flex-direction:column;gap:16px">
+
+          <div style="border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:1.25rem">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem">
+              <div>
+                <div style="font-size:14px;font-weight:500">Backup completo (JSON)</div>
+                <div style="font-size:12px;color:var(--color-text-muted);margin-top:4px">
+                  Todos tus datos: clientes, productos, pedidos, órdenes, CxC, cotizaciones y garantías.
+                </div>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="descargarBackup()" style="white-space:nowrap">
+                Descargar backup
+              </button>
+            </div>
+          </div>
+
+          <div style="border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:1.25rem">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem">
+              <div>
+                <div style="font-size:14px;font-weight:500">Clientes — Excel</div>
+                <div style="font-size:12px;color:var(--color-text-muted);margin-top:4px">
+                  Lista de clientes con totales de ventas.
+                </div>
+              </div>
+              <button class="btn btn-secondary btn-sm" onclick="exportar('clientes')" style="white-space:nowrap">
+                Exportar .xlsx
+              </button>
+            </div>
+          </div>
+
+          <div style="border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:1.25rem">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem">
+              <div>
+                <div style="font-size:14px;font-weight:500">Pedidos — Excel</div>
+                <div style="font-size:12px;color:var(--color-text-muted);margin-top:4px">
+                  Historial completo de pedidos y ventas.
+                </div>
+              </div>
+              <button class="btn btn-secondary btn-sm" onclick="exportar('pedidos')" style="white-space:nowrap">
+                Exportar .xlsx
+              </button>
+            </div>
+          </div>
+
+          <div style="border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:1.25rem">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem">
+              <div>
+                <div style="font-size:14px;font-weight:500">Cuentas por cobrar — Excel</div>
+                <div style="font-size:12px;color:var(--color-text-muted);margin-top:4px">
+                  Estado de todas las cuentas pendientes y vencidas.
+                </div>
+              </div>
+              <button class="btn btn-secondary btn-sm" onclick="exportar('cxc')" style="white-space:nowrap">
+                Exportar .xlsx
+              </button>
+            </div>
+          </div>
+
+          <div style="background:var(--color-bg-secondary);border-radius:var(--radius-md);padding:1rem;font-size:12px;color:var(--color-text-muted)">
+            🔒 Solo el administrador puede descargar backups y exportaciones.
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Tab: Módulos -->
     <div class="tab-panel" id="tab-modulos">
       <div style="max-width:620px">
@@ -299,7 +373,7 @@
 <script src="../../js/config.js"></script>
 <script src="../../js/api.js"></script>
 <script src="../../js/auth.js"></script>
-<script src="../../js/sidebar.js"></script>
+<script src="../../js/sidebar.js"></script>`n  <script src="../../js/global-search.js"></script>
 <script>
   requireAuth();
   initSidebar('ajustes');
@@ -544,6 +618,37 @@
   document.querySelectorAll('.tab-btn').forEach(btn => {
     if (btn.dataset.tab === 'modulos') btn.addEventListener('click', loadModulos);
   });
+
+  // ── Backup y exportaciones ────────────────────────────────────────────────
+  async function descargarBackup() {
+    try {
+      showToast('Preparando backup...');
+      const blob = await api.get('/backup');
+      const url  = URL.createObjectURL(new Blob([JSON.stringify(blob)], { type: 'application/json' }));
+      const a    = document.createElement('a');
+      const fecha = new Date().toISOString().slice(0,10);
+      a.href = url; a.download = `backup_servigest_${fecha}.json`; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showToast('✅ Backup descargado');
+    } catch(err) { showToast(err.message, 'error'); }
+  }
+
+  async function exportar(tipo) {
+    try {
+      const token = api.getToken();
+      const url   = (typeof CONFIG !== 'undefined' ? CONFIG.API_URL : 'https://servigest-production-a7c5.up.railway.app/api');
+      const endpointMap = { clientes: '/clientes/export', pedidos: '/pedidos/export', cxc: '/cxc/export' };
+      const res   = await fetch(url + endpointMap[tipo], {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Error'); }
+      const blob  = await res.blob();
+      const link  = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${tipo}.xlsx`; link.click();
+      showToast(`✅ ${tipo}.xlsx descargado`);
+    } catch(err) { showToast(err.message, 'error'); }
+  }
 </script>
 
 <style>
