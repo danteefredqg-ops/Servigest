@@ -1,6 +1,7 @@
 const { log } = require('../middleware/audit');
 const bcrypt = require('bcryptjs');
 const jwt    = require('jsonwebtoken');
+const crypto = require('crypto');
 const db     = require('../db/connection');
 
 // ── Registro (crea empresa + usuario admin) ──────────────────────────────────
@@ -58,7 +59,7 @@ async function register(req, res, next) {
       await client.query('COMMIT');
 
       const user  = userRes.rows[0];
-      const token = signToken(user, emp.id);
+      const token = signToken(user, emp.id, emp.plan, emp.trial_hasta);
 
       res.status(201).json({
         token,
@@ -100,7 +101,7 @@ async function login(req, res, next) {
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Credenciales incorrectas' });
 
-    const token = signToken(user, user.empresa_id);
+    const token = signToken(user, user.empresa_id, user.plan, user.trial_hasta);
     const { password_hash, ...safeUser } = user;
 
     // Log login (req.user no existe aún, construir manualmente)
@@ -152,12 +153,66 @@ async function updateEmpresa(req, res, next) {
   }
 }
 
-function signToken(user, empresa_id) {
+// ── Olvidé mi contraseña ──────────────────────────────────────────────────────
+async function forgotPassword(req, res, next) {
+  try {
+    const email = (req.body.email || '').toLowerCase().trim();
+    if (!email) return res.status(400).json({ error: 'Email requerido' });
+
+    const result = await db.query('SELECT id, nombre FROM usuarios WHERE LOWER(email) = $1', [email]);
+    // Siempre responder 200 para no revelar si el correo existe
+    if (!result.rows[0]) return res.json({ ok: true });
+
+    const user  = result.rows[0];
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+
+    await db.query(
+      'UPDATE usuarios SET reset_token = $1, reset_token_expires = $2 WHERE id = $3',
+      [token, expires, user.id]
+    );
+
+    const frontendUrl = process.env.FRONTEND_URL || 'https://danteefredqg-ops.github.io/Servigest';
+    const resetUrl    = `${frontendUrl}/pages/auth/reset-password.html?token=${token}`;
+
+    // ── Email stub: reemplazar con Resend / SendGrid cuando se elija proveedor ──
+    console.log(`[RESET-PASSWORD] Usuario: ${user.nombre} <${email}>`);
+    console.log(`[RESET-PASSWORD] URL de recuperación (válida 1 hora): ${resetUrl}`);
+    // await emailService.send({ to: email, subject: 'Recuperar contraseña ServiGest', html: `...${resetUrl}...` });
+
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+}
+
+// ── Resetear contraseña con token ─────────────────────────────────────────────
+async function resetPassword(req, res, next) {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) return res.status(400).json({ error: 'Token y contraseña requeridos' });
+    if (password.length < 8) return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
+
+    const result = await db.query(
+      'SELECT id FROM usuarios WHERE reset_token = $1 AND reset_token_expires > NOW()',
+      [token]
+    );
+    if (!result.rows[0]) return res.status(400).json({ error: 'Token inválido o expirado' });
+
+    const hash = await bcrypt.hash(password, 12);
+    await db.query(
+      'UPDATE usuarios SET password_hash = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2',
+      [hash, result.rows[0].id]
+    );
+
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+}
+
+function signToken(user, empresa_id, plan, trial_hasta) {
   return jwt.sign(
-    { id: user.id, empresa_id, rol: user.rol },
+    { id: user.id, empresa_id, rol: user.rol, plan, trial_hasta },
     process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );
 }
 
-module.exports = { register, login, me, updateEmpresa };
+module.exports = { register, login, me, updateEmpresa, forgotPassword, resetPassword };

@@ -42,6 +42,15 @@ const api = {
       return;
     }
 
+    if (res.status === 402) {
+      const path = window.location.pathname;
+      const root = path.indexOf('/pages/') >= 0 ? path.substring(0, path.indexOf('/pages/')) : '';
+      if (!window.location.pathname.includes('trial-expirado')) {
+        window.location.href = root + '/pages/auth/trial-expirado.html';
+      }
+      return;
+    }
+
     // Respuestas binarias
     const ct = res.headers.get('Content-Type') || '';
     if (ct.includes('spreadsheet') || ct.includes('pdf') || ct.includes('xml') || ct.includes('csv')) {
@@ -106,6 +115,8 @@ const api = {
     this.setUser(d.user);
     return d;
   },
+  forgotPassword: (email)           => api.post('/auth/forgot-password', { email }),
+  resetPassword:  (token, password) => api.post('/auth/reset-password',  { token, password }),
 
   // ── Pedidos ───────────────────────────────────────────────────────────────
   pedidos: {

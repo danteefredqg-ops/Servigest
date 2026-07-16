@@ -375,3 +375,7 @@ CROSS JOIN (VALUES
   ('caja'),('garantias'),('reportes'),('alertas')
 ) AS m(modulo)
 ON CONFLICT (empresa_id, modulo) DO NOTHING;
+
+-- ── MIGRACIONES INCREMENTALES ─────────────────────────────────────────────────
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token         TEXT;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMPTZ;

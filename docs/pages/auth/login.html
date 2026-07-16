@@ -41,7 +41,8 @@
       </div>
       <button class="btn btn-primary btn-block" id="btn-login">Entrar</button>
     </div>
-    <div class="toggle-form">¿No tienes cuenta? <a onclick="toggleForm()">Regístrate</a></div>
+    <div class="toggle-form">¿No tienes cuenta? <a onclick="toggleForm('register')">Regístrate</a></div>
+    <div class="toggle-form" style="margin-top:.5rem"><a onclick="toggleForm('forgot')" style="color:var(--color-text-hint);font-weight:400">¿Olvidaste tu contraseña?</a></div>
   </div>
 
   <!-- Formulario registro -->
@@ -67,7 +68,23 @@
       </div>
       <button class="btn btn-primary btn-block" id="btn-register">Crear cuenta</button>
     </div>
-    <div class="toggle-form">¿Ya tienes cuenta? <a onclick="toggleForm()">Inicia sesión</a></div>
+    <div class="toggle-form">¿Ya tienes cuenta? <a onclick="toggleForm('login')">Inicia sesión</a></div>
+  </div>
+
+  <!-- Formulario recuperar contraseña -->
+  <div id="form-forgot" style="display:none">
+    <p class="login-title">Recuperar contraseña</p>
+    <div class="form-stack">
+      <div id="forgot-error" class="error-msg"></div>
+      <div id="forgot-ok" class="error-msg" style="background:var(--estado-activo-bg,#e6f4ea);color:var(--estado-activo-text,#1a6b3a);display:none"></div>
+      <p style="font-size:13px;color:var(--color-text-muted);margin:0">Escribe tu correo y te enviaremos un enlace para restablecer tu contraseña.</p>
+      <div class="form-group">
+        <label class="form-label" for="forgot-email">Correo electrónico</label>
+        <input class="form-input" type="email" id="forgot-email" placeholder="tu@correo.com" />
+      </div>
+      <button class="btn btn-primary btn-block" id="btn-forgot">Enviar enlace</button>
+    </div>
+    <div class="toggle-form"><a onclick="toggleForm('login')">← Volver al inicio de sesión</a></div>
   </div>
 </div>
 
@@ -79,11 +96,10 @@
     window.location.href = '../dashboard/dashboard.html';
   }
 
-  function toggleForm() {
-    const login    = document.getElementById('form-login');
-    const register = document.getElementById('form-register');
-    login.style.display    = login.style.display    === 'none' ? 'block' : 'none';
-    register.style.display = register.style.display === 'none' ? 'block' : 'none';
+  function toggleForm(show) {
+    ['login','register','forgot'].forEach(id => {
+      document.getElementById('form-' + id).style.display = id === show ? 'block' : 'none';
+    });
   }
 
   function showError(id, msg) {
@@ -120,13 +136,31 @@
     }
   });
 
+  // Recuperar contraseña
+  document.getElementById('btn-forgot').addEventListener('click', async () => {
+    const email = document.getElementById('forgot-email').value.trim();
+    const errEl = document.getElementById('forgot-error');
+    const okEl  = document.getElementById('forgot-ok');
+    errEl.style.display = 'none';
+    okEl.style.display  = 'none';
+    try {
+      await api.forgotPassword(email);
+      okEl.textContent    = 'Si el correo existe, recibirás el enlace en unos minutos.';
+      okEl.style.display  = 'block';
+      document.getElementById('forgot-email').value = '';
+    } catch (err) {
+      errEl.textContent   = err.message;
+      errEl.style.display = 'block';
+    }
+  });
+
   // Enter en inputs
   document.querySelectorAll('.form-input').forEach(input => {
     input.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
-        const activeForm = document.getElementById('form-login').style.display !== 'none'
-          ? 'btn-login' : 'btn-register';
-        document.getElementById(activeForm).click();
+        if (document.getElementById('form-login').style.display   !== 'none') document.getElementById('btn-login').click();
+        else if (document.getElementById('form-register').style.display !== 'none') document.getElementById('btn-register').click();
+        else document.getElementById('btn-forgot').click();
       }
     });
   });

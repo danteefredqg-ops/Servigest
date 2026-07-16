@@ -10,10 +10,22 @@ function authMiddleware(req, res, next) {
   try {
     const payload = jwt.verify(header.split(' ')[1], process.env.JWT_SECRET);
     req.user = {
-      id:         payload.id,
-      empresa_id: payload.empresa_id,
-      rol:        payload.rol || 'admin',
+      id:          payload.id,
+      empresa_id:  payload.empresa_id,
+      rol:         payload.rol || 'admin',
+      plan:        payload.plan,
+      trial_hasta: payload.trial_hasta,
     };
+
+    // Trial expirado: tokens nuevos incluyen plan y trial_hasta
+    if (payload.plan === 'trial' && payload.trial_hasta && new Date(payload.trial_hasta) < new Date()) {
+      return res.status(402).json({
+        error:       'trial_expirado',
+        trial_hasta: payload.trial_hasta,
+        mensaje:     'Tu período de prueba ha terminado. Contacta soporte para continuar.',
+      });
+    }
+
     next();
   } catch {
     return res.status(401).json({ error: 'Token inválido o expirado' });
