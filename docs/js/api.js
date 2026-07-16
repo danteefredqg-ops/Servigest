@@ -212,7 +212,7 @@ const api = {
     cxcVencidas: ()     => api.get('/reportes/cxc-vencidas'),
     ingresosXlsx: async (f={}) => {
       const blob = await api.get('/reportes/ingresos' + buildQuery({...f, formato:'xlsx'}));
-      descargarBlob(blob, 'reporte_ingresos.xlsx');
+      if (blob) descargarBlob(blob, 'reporte_ingresos.xlsx');
     },
   },
 
@@ -226,7 +226,7 @@ const api = {
     preview: (file) => { const fd=new FormData(); fd.append('archivo',file); return api.upload('/import/preview', fd); },
     plantilla: async (tipo) => {
       const blob = await api.get(`/import/plantilla/${tipo}`);
-      descargarBlob(blob, `plantilla_${tipo}.xlsx`);
+      if (blob) descargarBlob(blob, `plantilla_${tipo}.xlsx`);
     },
   },
 

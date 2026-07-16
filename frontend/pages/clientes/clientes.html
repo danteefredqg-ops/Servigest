@@ -102,7 +102,7 @@
     try {
       const clientes = await api.clientes.list();
       if (clientes.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);padding:2rem">Sin clientes aún</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--color-text-muted);padding:2rem">Sin clientes aún</td></tr>`;
         return;
       }
       tbody.innerHTML = clientes.map(c => {

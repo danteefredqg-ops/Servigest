@@ -153,6 +153,7 @@ async function generarRecordatorios(req, res, next) {
          VALUES ($1, 'info', $2, $3, 'admin')`,
         [eid, titulo, mensaje]
       );
+      titExist.add(titulo);
       creadas++;
     }
 

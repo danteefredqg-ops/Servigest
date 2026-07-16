@@ -102,7 +102,7 @@ async function login(req, res, next) {
     if (!valid) return res.status(401).json({ error: 'Credenciales incorrectas' });
 
     const token = signToken(user, user.empresa_id, user.plan, user.trial_hasta);
-    const { password_hash, ...safeUser } = user;
+    const { password_hash, reset_token, reset_token_expires, ...safeUser } = user;
 
     // Log login (req.user no existe aún, construir manualmente)
     req.user = { id: user.id, empresa_id: user.empresa_id, nombre: user.nombre };
@@ -126,7 +126,8 @@ async function me(req, res, next) {
       [req.user.id]
     );
     if (!result.rows[0]) return res.status(404).json({ error: 'Usuario no encontrado' });
-    res.json(result.rows[0]);
+    const { reset_token: _rt, reset_token_expires: _rte, ...safeProfile } = result.rows[0];
+    res.json(safeProfile);
   } catch (err) {
     next(err);
   }
@@ -147,6 +148,7 @@ async function updateEmpresa(req, res, next) {
        WHERE id = $6 RETURNING id, nombre, rfc, regimen_fiscal, plan`,
       [nombre, rfc, regimen_fiscal, direccion_fiscal, cp, req.user.empresa_id, facturapi_key || null]
     );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Empresa no encontrada' });
     res.json(result.rows[0]);
   } catch (err) {
     next(err);
@@ -195,7 +197,7 @@ async function resetPassword(req, res, next) {
       'SELECT id FROM usuarios WHERE reset_token = $1 AND reset_token_expires > NOW()',
       [token]
     );
-    if (!result.rows[0]) return res.status(400).json({ error: 'Token inválido o expirado' });
+    if (!result.rows[0]) return res.status(400).json({ error: 'Enlace de recuperación inválido o expirado' });
 
     const hash = await bcrypt.hash(password, 12);
     await db.query(

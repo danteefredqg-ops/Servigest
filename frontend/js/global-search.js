@@ -101,16 +101,20 @@
     });
   }
 
+  function escHtml(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
   function resultItem(icon, title, sub, href) {
-    return `<a class="sg-result-item" href="${href}" onclick="window.closeGlobalSearch && window.closeGlobalSearch()" style="
+    return `<a class="sg-result-item" href="${escHtml(href)}" onclick="window.closeGlobalSearch && window.closeGlobalSearch()" style="
       display:flex;align-items:center;gap:12px;padding:10px 18px;text-decoration:none;
       color:var(--color-text);transition:background .1s;cursor:pointer;
     " onmouseenter="this.style.background='var(--color-bg-secondary)'" onmouseleave="this.style.background=''"
     >
       <span style="font-size:18px;width:24px;text-align:center;flex-shrink:0">${icon}</span>
       <div style="min-width:0">
-        <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</div>
-        <div style="font-size:11px;color:var(--color-text-hint);margin-top:1px">${sub}</div>
+        <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(title)}</div>
+        <div style="font-size:11px;color:var(--color-text-hint);margin-top:1px">${escHtml(sub)}</div>
       </div>
     </a>`;
   }

@@ -11,7 +11,8 @@ router.get('/', async (req, res, next) => {
   try {
     const eid = req.user.empresa_id;
 
-    const [clientes, productos, pedidos, ordenes, cxc, cotizaciones, compras, garantias] =
+    const [clientes, productos, pedidos, ordenes, cxc, cotizaciones, compras, garantias,
+           pedidoItems, otItems, pagosCxc] =
       await Promise.all([
         db.query('SELECT * FROM clientes             WHERE empresa_id = $1 ORDER BY id', [eid]),
         db.query('SELECT * FROM productos            WHERE empresa_id = $1 ORDER BY id', [eid]),
@@ -21,6 +22,9 @@ router.get('/', async (req, res, next) => {
         db.query('SELECT * FROM cotizaciones         WHERE empresa_id = $1 ORDER BY id', [eid]),
         db.query('SELECT * FROM compras              WHERE empresa_id = $1 ORDER BY id', [eid]),
         db.query('SELECT * FROM garantias            WHERE empresa_id = $1 ORDER BY id', [eid]),
+        db.query('SELECT pi.* FROM pedido_items pi JOIN pedidos p ON p.id = pi.pedido_id WHERE p.empresa_id = $1', [eid]),
+        db.query('SELECT oi.* FROM ot_items oi JOIN ordenes_trabajo ot ON ot.id = oi.ot_id WHERE ot.empresa_id = $1', [eid]),
+        db.query('SELECT pc.* FROM pagos_cxc pc JOIN cuentas_por_cobrar c ON c.id = pc.cxc_id WHERE c.empresa_id = $1', [eid]),
       ]);
 
     const payload = {
@@ -29,8 +33,11 @@ router.get('/', async (req, res, next) => {
       clientes:      clientes.rows,
       productos:     productos.rows,
       pedidos:       pedidos.rows,
+      pedido_items:  pedidoItems.rows,
       ordenes:       ordenes.rows,
+      ot_items:      otItems.rows,
       cxc:           cxc.rows,
+      pagos_cxc:     pagosCxc.rows,
       cotizaciones:  cotizaciones.rows,
       compras:       compras.rows,
       garantias:     garantias.rows,
