@@ -49,6 +49,7 @@ async function importClientes(req, res, next) {
       }
 
       try {
+        const rfcVal = (getVal(row, 'rfc', map) || '').toUpperCase() || null;
         const existe = await db.query(
           'SELECT id FROM clientes WHERE empresa_id = $1 AND LOWER(nombre) = LOWER($2)',
           [req.user.empresa_id, nombre]
@@ -56,15 +57,21 @@ async function importClientes(req, res, next) {
         if (existe.rows[0]) { resultados.omitidos++; continue; }
 
         await db.query(
-          `INSERT INTO clientes (empresa_id, nombre, telefono, email, direccion, rfc)
-           VALUES ($1,$2,$3,$4,$5,$6)`,
+          `INSERT INTO clientes
+             (empresa_id, nombre, telefono, email, direccion, rfc,
+              uso_cfdi, regimen_fiscal, cp, notas)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
           [
             req.user.empresa_id,
             nombre,
-            getVal(row, 'telefono',  map) || null,
-            getVal(row, 'email',     map) || null,
-            getVal(row, 'direccion', map) || null,
-            getVal(row, 'rfc',       map) || null,
+            getVal(row, 'telefono',       map) || null,
+            getVal(row, 'email',          map) || null,
+            getVal(row, 'direccion',      map) || null,
+            rfcVal,
+            getVal(row, 'uso_cfdi',       map) || 'G03',
+            getVal(row, 'regimen_fiscal', map) || null,
+            getVal(row, 'cp',             map) || null,
+            getVal(row, 'notas',          map) || null,
           ]
         );
         resultados.importados++;
@@ -140,7 +147,30 @@ async function plantilla(req, res, next) {
   try {
     const tipo = req.params.tipo;
     const plantillas = {
-      clientes:  [{ nombre: 'Juan López', telefono: '81 1234 5678', email: 'juan@ejemplo.com', rfc: 'LOPJ800101AAA', direccion: 'Monterrey, NL' }],
+      clientes: [
+        {
+          nombre:         'Juan López García',
+          rfc:            'LOGJ800101AAA',
+          regimen_fiscal: '612',
+          uso_cfdi:       'G03',
+          cp:             '64000',
+          telefono:       '81 1234 5678',
+          email:          'juan@ejemplo.com',
+          direccion:      'Av. Garza Sada 123, Col. Tecnológico, Monterrey, NL',
+          notas:          'Cliente frecuente',
+        },
+        {
+          nombre:         'Transportes del Norte SA de CV',
+          rfc:            'TNO980201B3A',
+          regimen_fiscal: '601',
+          uso_cfdi:       'G01',
+          cp:             '66400',
+          telefono:       '81 8765 4321',
+          email:          'contabilidad@transpnorte.com',
+          direccion:      'Blvd. Industrial 500, San Nicolás, NL',
+          notas:          '',
+        },
+      ],
       productos: [{ nombre: 'Servicio de plomería', descripcion: 'Revisión y reparación', sku: 'PLO-001', unidad: 'servicio', precio: 1500, costo: 500, stock: 0, stock_minimo: 0 }],
     };
 

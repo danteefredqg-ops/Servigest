@@ -62,13 +62,54 @@
     <input type="hidden" id="cliente-id" />
     <div style="display:flex;flex-direction:column;gap:1rem">
       <div class="form-group">
-        <label class="form-label">Nombre *</label>
+        <label class="form-label">Nombre / Razón Social *</label>
         <input class="form-input" type="text" id="c-nombre" placeholder="Roberto López" />
       </div>
-      <div class="form-group">
-        <label class="form-label">RFC</label>
-        <input class="form-input" type="text" id="c-rfc" placeholder="ROBR800101AAA" maxlength="13" style="text-transform:uppercase" />
+
+      <div style="border-top:1px solid var(--color-border);padding-top:.75rem;margin-top:.25rem">
+        <p style="font-size:11px;font-weight:600;color:var(--color-text-hint);text-transform:uppercase;letter-spacing:.5px;margin:0 0 .75rem">Datos para facturación CFDI</p>
+        <div style="display:flex;flex-direction:column;gap:.75rem">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+            <div class="form-group" style="margin:0">
+              <label class="form-label">RFC</label>
+              <input class="form-input" type="text" id="c-rfc" placeholder="ROBR800101AAA" maxlength="13" style="text-transform:uppercase" />
+            </div>
+            <div class="form-group" style="margin:0">
+              <label class="form-label">C.P. Fiscal</label>
+              <input class="form-input" type="text" id="c-cp" placeholder="64000" maxlength="10" />
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Régimen Fiscal</label>
+              <select class="form-select" id="c-regimen">
+                <option value="">— Sin especificar —</option>
+                <option value="601">601 – General Personas Morales</option>
+                <option value="603">603 – Personas Morales s/f de lucro</option>
+                <option value="605">605 – Sueldos y Salarios</option>
+                <option value="606">606 – Arrendamiento</option>
+                <option value="612">612 – Act. Empresariales y Prof.</option>
+                <option value="616">616 – Sin obligaciones fiscales</option>
+                <option value="621">621 – Incorporación Fiscal</option>
+                <option value="626">626 – RESICO</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Uso CFDI</label>
+              <select class="form-select" id="c-uso-cfdi">
+                <option value="G03">G03 – Gastos en general</option>
+                <option value="G01">G01 – Adquisición de mercancias</option>
+                <option value="G02">G02 – Devoluciones, descuentos</option>
+                <option value="I01">I01 – Construcciones</option>
+                <option value="D01">D01 – Honorarios médicos</option>
+                <option value="S01">S01 – Sin efectos fiscales</option>
+                <option value="P01">P01 – Por definir</option>
+              </select>
+            </div>
+          </div>
+        </div>
       </div>
+
       <div class="form-group">
         <label class="form-label">Teléfono</label>
         <input class="form-input" type="tel" id="c-telefono" placeholder="81 1234 5678" />
@@ -80,6 +121,10 @@
       <div class="form-group">
         <label class="form-label">Dirección</label>
         <textarea class="form-textarea" id="c-direccion" placeholder="Calle, colonia, ciudad"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notas internas</label>
+        <textarea class="form-textarea" id="c-notas" placeholder="Condiciones especiales, observaciones..." style="height:56px"></textarea>
       </div>
     </div>
     <div class="modal-footer">
@@ -137,7 +182,9 @@
   document.getElementById('btn-nuevo').addEventListener('click', () => {
     document.getElementById('modal-titulo').textContent = 'Nuevo cliente';
     document.getElementById('cliente-id').value = '';
-    ['c-nombre','c-rfc','c-telefono','c-email','c-direccion'].forEach(id => document.getElementById(id).value = '');
+    ['c-nombre','c-rfc','c-cp','c-telefono','c-email','c-direccion','c-notas'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('c-regimen').value    = '';
+    document.getElementById('c-uso-cfdi').value   = 'G03';
     openModal('modal-cliente');
   });
 
@@ -148,9 +195,13 @@
       document.getElementById('cliente-id').value = c.id;
       document.getElementById('c-nombre').value    = c.nombre;
       document.getElementById('c-rfc').value       = c.rfc || '';
+      document.getElementById('c-cp').value        = c.cp || '';
+      document.getElementById('c-regimen').value   = c.regimen_fiscal || '';
+      document.getElementById('c-uso-cfdi').value  = c.uso_cfdi || 'G03';
       document.getElementById('c-telefono').value  = c.telefono || '';
       document.getElementById('c-email').value     = c.email || '';
       document.getElementById('c-direccion').value = c.direccion || '';
+      document.getElementById('c-notas').value     = c.notas || '';
       openModal('modal-cliente');
     } catch (err) {
       showToast(err.message, 'error');
@@ -160,11 +211,15 @@
   document.getElementById('btn-guardar-cliente').addEventListener('click', async () => {
     const id = document.getElementById('cliente-id').value;
     const body = {
-      nombre:    document.getElementById('c-nombre').value,
-      rfc:       document.getElementById('c-rfc').value.toUpperCase() || null,
-      telefono:  document.getElementById('c-telefono').value,
-      email:     document.getElementById('c-email').value,
-      direccion: document.getElementById('c-direccion').value,
+      nombre:         document.getElementById('c-nombre').value,
+      rfc:            document.getElementById('c-rfc').value.toUpperCase() || null,
+      cp:             document.getElementById('c-cp').value || null,
+      regimen_fiscal: document.getElementById('c-regimen').value || null,
+      uso_cfdi:       document.getElementById('c-uso-cfdi').value || 'G03',
+      telefono:       document.getElementById('c-telefono').value,
+      email:          document.getElementById('c-email').value,
+      direccion:      document.getElementById('c-direccion').value,
+      notas:          document.getElementById('c-notas').value || null,
     };
     try {
       if (id) {

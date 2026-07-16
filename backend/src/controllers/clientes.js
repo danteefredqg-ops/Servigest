@@ -48,16 +48,20 @@ async function getById(req, res, next) {
 
 async function create(req, res, next) {
   try {
-    const { nombre, telefono, email, direccion, rfc } = req.body;
+    const { nombre, telefono, email, direccion, rfc, uso_cfdi, regimen_fiscal, cp, notas } = req.body;
 
     if (!nombre) {
       return res.status(400).json({ error: 'El nombre es requerido' });
     }
 
     const result = await db.query(
-      `INSERT INTO clientes (nombre, telefono, email, direccion, rfc, empresa_id)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [nombre, telefono, email, direccion, rfc ? rfc.toUpperCase() : null, req.user.empresa_id]
+      `INSERT INTO clientes
+         (nombre, telefono, email, direccion, rfc, uso_cfdi, regimen_fiscal, cp, notas, empresa_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      [nombre, telefono||null, email||null, direccion||null,
+       rfc ? rfc.toUpperCase() : null,
+       uso_cfdi||'G03', regimen_fiscal||null, cp||null, notas||null,
+       req.user.empresa_id]
     );
 
     res.status(201).json(result.rows[0]);
@@ -68,18 +72,24 @@ async function create(req, res, next) {
 
 async function update(req, res, next) {
   try {
-    const { nombre, telefono, email, direccion, rfc } = req.body;
+    const { nombre, telefono, email, direccion, rfc, uso_cfdi, regimen_fiscal, cp, notas } = req.body;
 
     const result = await db.query(
       `UPDATE clientes
-       SET nombre    = COALESCE($1, nombre),
-           telefono  = COALESCE($2, telefono),
-           email     = COALESCE($3, email),
-           direccion = COALESCE($4, direccion),
-           rfc       = COALESCE($5, rfc)
-       WHERE id = $6 AND empresa_id = $7
+       SET nombre         = COALESCE($1,  nombre),
+           telefono       = COALESCE($2,  telefono),
+           email          = COALESCE($3,  email),
+           direccion      = COALESCE($4,  direccion),
+           rfc            = COALESCE($5,  rfc),
+           uso_cfdi       = COALESCE($6,  uso_cfdi),
+           regimen_fiscal = COALESCE($7,  regimen_fiscal),
+           cp             = COALESCE($8,  cp),
+           notas          = COALESCE($9,  notas)
+       WHERE id = $10 AND empresa_id = $11
        RETURNING *`,
-      [nombre, telefono, email, direccion, rfc ? rfc.toUpperCase() : null,
+      [nombre, telefono||null, email||null, direccion||null,
+       rfc ? rfc.toUpperCase() : null,
+       uso_cfdi||null, regimen_fiscal||null, cp||null, notas||null,
        req.params.id, req.user.empresa_id]
     );
 

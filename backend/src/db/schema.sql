@@ -379,3 +379,5 @@ ON CONFLICT (empresa_id, modulo) DO NOTHING;
 -- ── MIGRACIONES INCREMENTALES ─────────────────────────────────────────────────
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token         TEXT;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMPTZ;
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS cp                  VARCHAR(10);
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS notas               TEXT;

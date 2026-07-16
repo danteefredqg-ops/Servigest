@@ -73,7 +73,7 @@ async function timbrar(req, res, next) {
     const factura = await db.query(
       `SELECT f.*, c.rfc AS cliente_rfc, c.nombre AS cliente_nombre,
               c.regimen_fiscal AS cliente_regimen, c.uso_cfdi,
-              e.cp AS empresa_cp
+              c.cp AS cliente_cp, e.cp AS empresa_cp
        FROM facturas f
        JOIN clientes c ON c.id = f.cliente_id
        JOIN empresas  e ON e.id = f.empresa_id
@@ -85,7 +85,8 @@ async function timbrar(req, res, next) {
     const f = factura.rows[0];
 
     if (f.estado === 'timbrado') return res.status(400).json({ error: 'Esta factura ya fue timbrada' });
-    if (!f.cliente_rfc)          return res.status(400).json({ error: 'El cliente no tiene RFC configurado' });
+    if (!f.cliente_rfc) return res.status(400).json({ error: 'El cliente no tiene RFC configurado' });
+    if (!f.cliente_cp && !f.empresa_cp) return res.status(400).json({ error: 'El cliente no tiene C.P. fiscal configurado (requerido para CFDI 4.0)' });
 
     const client = await getFacturapiClient(req.user.empresa_id);
 
@@ -95,7 +96,7 @@ async function timbrar(req, res, next) {
         legal_name:      f.cliente_nombre,
         tax_id:          f.cliente_rfc,
         tax_system:      f.cliente_regimen || '626',
-        address: { zip: f.empresa_cp || '64000' },
+        address: { zip: f.cliente_cp || f.empresa_cp },
       },
       use:   f.uso_cfdi || 'G03',
       items: f.items.map(item => ({

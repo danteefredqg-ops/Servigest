@@ -228,11 +228,15 @@ initSidebar('');
 // ── Definición de campos por tipo ─────────────────────────────────────────────
 const CAMPOS = {
   clientes: [
-    { id:'nombre',    label:'Nombre / Razón Social', req: true },
-    { id:'telefono',  label:'Teléfono' },
-    { id:'email',     label:'Correo electrónico' },
-    { id:'rfc',       label:'RFC' },
-    { id:'direccion', label:'Dirección / Domicilio' },
+    { id:'nombre',         label:'Nombre / Razón Social', req: true },
+    { id:'rfc',            label:'RFC (para CFDI)' },
+    { id:'regimen_fiscal', label:'Régimen fiscal SAT (601, 612, 626…)' },
+    { id:'uso_cfdi',       label:'Uso CFDI (G01, G03, S01…)' },
+    { id:'cp',             label:'C.P. fiscal receptor (CFDI 4.0)' },
+    { id:'telefono',       label:'Teléfono' },
+    { id:'email',          label:'Correo electrónico' },
+    { id:'direccion',      label:'Dirección / Domicilio' },
+    { id:'notas',          label:'Notas internas' },
   ],
   productos: [
     { id:'nombre',       label:'Nombre del producto', req: true },
@@ -248,11 +252,15 @@ const CAMPOS = {
 
 // Sinónimos para auto-mapeo
 const SYNONYMS = {
-  nombre:       ['nombre','name','razón social','razon social','cliente','producto'],
-  telefono:     ['telefono','teléfono','tel','phone','celular','movil','móvil','cell'],
-  email:        ['email','correo','e-mail','mail','correo electronico','correo electrónico'],
-  rfc:          ['rfc'],
-  direccion:    ['direccion','dirección','domicilio','address','calle'],
+  nombre:         ['nombre','name','razón social','razon social','cliente','producto','denominacion','denominación'],
+  rfc:            ['rfc','tax_id','registro federal'],
+  regimen_fiscal: ['regimen fiscal','régimen fiscal','regimen','régimen','tax system','regimen_fiscal','reg fiscal','sat regimen'],
+  uso_cfdi:       ['uso cfdi','uso_cfdi','cfdi','uso','cfdi uso','clave cfdi'],
+  cp:             ['cp','c.p.','codigo postal','código postal','zip','postal','cp fiscal','domicilio fiscal'],
+  telefono:       ['telefono','teléfono','tel','phone','celular','movil','móvil','cell'],
+  email:          ['email','correo','e-mail','mail','correo electronico','correo electrónico'],
+  direccion:      ['direccion','dirección','domicilio','address','calle'],
+  notas:          ['notas','nota','observaciones','comentarios','comments'],
   sku:          ['sku','código','codigo','code','clave','articulo','artículo','part number','pn'],
   descripcion:  ['descripcion','descripción','detalle','detail','concepto','nota'],
   precio:       ['precio','price','precio venta','pvp','p.v.p','precio de venta','venta','tarifa'],
