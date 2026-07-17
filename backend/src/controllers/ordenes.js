@@ -137,6 +137,7 @@ async function create(req, res, next) {
     const ot = otRes.rows[0];
 
     // Insertar items y verificar/descontar stock
+    const resolvedItems = [];
     for (const item of itemsProc) {
       let disponible = true;
 
@@ -158,6 +159,8 @@ async function create(req, res, next) {
         disponible = prod.rows[0] ? Number(prod.rows[0].stock) >= item.cantidad : false;
       }
 
+      resolvedItems.push({ ...item, disponible });
+
       await client.query(
         `INSERT INTO ot_items
            (ot_id, producto_id, tipo, descripcion, cantidad,
@@ -170,7 +173,7 @@ async function create(req, res, next) {
     }
 
     // Crear alerta si hay items sin stock
-    const faltantes = itemsProc.filter(i => !i.disponible && i.tipo !== 'mano_obra');
+    const faltantes = resolvedItems.filter(i => !i.disponible && i.tipo !== 'mano_obra');
     if (faltantes.length) {
       await client.query(
         `INSERT INTO alertas (empresa_id, ot_id, de_usuario_id, para_rol, tipo, titulo, mensaje)

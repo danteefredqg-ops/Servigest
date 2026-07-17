@@ -94,7 +94,11 @@ async function resumen(req, res, next) {
          COALESCE(SUM(monto - monto_pagado) FILTER (WHERE estado IN ('pendiente','parcial')), 0) AS por_cobrar,
          COALESCE(SUM(monto - monto_pagado) FILTER (WHERE estado = 'vencida'), 0) AS vencido,
          COUNT(*) FILTER (WHERE estado = 'vencida') AS cuentas_vencidas,
-         COUNT(*) FILTER (WHERE estado IN ('pendiente','parcial')) AS cuentas_vigentes
+         COUNT(*) FILTER (WHERE estado IN ('pendiente','parcial')) AS cuentas_vigentes,
+         COALESCE(SUM(monto_pagado) FILTER (
+           WHERE estado = 'pagada'
+             AND updated_at >= date_trunc('month', NOW())
+         ), 0) AS cobrado_mes
        FROM cuentas_por_cobrar WHERE empresa_id = $1`,
       [req.user.empresa_id]
     );
