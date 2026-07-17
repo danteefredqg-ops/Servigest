@@ -381,3 +381,4 @@ ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token         TEXT;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMPTZ;
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS cp                  VARCHAR(10);
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS notas               TEXT;
+ALTER TABLE pedidos  ADD COLUMN IF NOT EXISTS forma_pago          VARCHAR(30) DEFAULT 'por_definir';

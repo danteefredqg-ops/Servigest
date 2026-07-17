@@ -115,7 +115,8 @@ async function create(req, res, next) {
         `INSERT INTO pedido_items
            (pedido_id, producto_id, descripcion, cantidad, precio_unit, descuento, subtotal)
          VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-        [pedido.id, item.producto_id || null, item.descripcion,
+        [pedido.id, item.producto_id || null,
+         item.descripcion || item.nombre || 'Servicio',
          item.cantidad, item.precio_unit, item.descuento, item.subtotal]
       );
 
