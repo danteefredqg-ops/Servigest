@@ -484,8 +484,11 @@ function imprimirTicket(pedido, metodo) {
       <td style="text-align:right;vertical-align:top;white-space:nowrap;font-weight:600">${formatMoney(i.producto.precio * i.cantidad)}</td>
     </tr>`).join('');
 
+  const logoUrl = emp.logo_url || '';
+
   document.getElementById('ticket-print').innerHTML = `
     <div style="text-align:center;padding:12px 0 10px;border-bottom:2px solid #000;margin-bottom:10px">
+      ${logoUrl ? `<img src="${logoUrl}" alt="Logo" style="max-height:70px;max-width:220px;object-fit:contain;margin-bottom:8px;display:block;margin-left:auto;margin-right:auto"/>` : ''}
       <div style="font-size:18px;font-weight:900;letter-spacing:-0.3px">${nombre}</div>
       ${rfc  ? `<div style="font-size:10px;margin-top:2px">RFC: ${rfc}</div>` : ''}
       ${dir  ? `<div style="font-size:10px">${dir}${cp ? ', C.P. '+cp : ''}</div>` : ''}

@@ -136,7 +136,7 @@ async function me(req, res, next) {
 // ── Actualizar empresa (RFC, datos fiscales) ──────────────────────────────────
 async function updateEmpresa(req, res, next) {
   try {
-    const { nombre, rfc, regimen_fiscal, direccion_fiscal, cp, facturapi_key } = req.body;
+    const { nombre, rfc, regimen_fiscal, direccion_fiscal, cp, facturapi_key, logo_url } = req.body;
     const result = await db.query(
       `UPDATE empresas
        SET nombre           = COALESCE($1, nombre),
@@ -144,9 +144,11 @@ async function updateEmpresa(req, res, next) {
            regimen_fiscal   = COALESCE($3, regimen_fiscal),
            direccion_fiscal = COALESCE($4, direccion_fiscal),
            cp               = COALESCE($5, cp),
-           facturapi_key    = COALESCE($7, facturapi_key)
+           facturapi_key    = COALESCE($7, facturapi_key),
+           logo_url         = CASE WHEN $8 IS NULL THEN logo_url ELSE NULLIF($8, '') END
        WHERE id = $6 RETURNING id, nombre, rfc, regimen_fiscal, plan`,
-      [nombre, rfc, regimen_fiscal, direccion_fiscal, cp, req.user.empresa_id, facturapi_key || null]
+      [nombre, rfc, regimen_fiscal, direccion_fiscal, cp, req.user.empresa_id,
+       facturapi_key || null, 'logo_url' in req.body ? (logo_url ?? null) : null]
     );
     if (!result.rows[0]) return res.status(404).json({ error: 'Empresa no encontrada' });
     res.json(result.rows[0]);

@@ -1086,25 +1086,81 @@ async function guardarCotizacionOT() {
   } catch(err) { showToast(err.message, 'error'); }
 }
 
-function imprimirCotizacionOT() {
+async function imprimirCotizacionOT() {
   if (!otActual) return;
   const conceptos  = getCotizacionConceptos();
   const total      = conceptos.reduce((s,c) => s + c.cantidad * c.precio_unit, 0);
   const otNum      = String(otActual.numero).padStart(4,'0');
-  const winPrint   = window.open('', '', 'width=600,height=700');
+
+  let emp = {};
+  try { emp = await api.get('/auth/me'); } catch(_) {}
+  const nombre   = emp.empresa_nombre || 'ServiGest';
+  const rfc      = emp.rfc      ? `RFC: ${emp.rfc}` : '';
+  const telefono = emp.telefono ? `Tel: ${emp.telefono}` : '';
+  const logoUrl  = emp.logo_url || '';
+  const logoTag  = logoUrl
+    ? `<img src="${logoUrl}" style="max-height:80px;max-width:200px;object-fit:contain;display:block;margin-bottom:8px"/>`
+    : '';
+
+  const winPrint = window.open('', '', 'width=680,height=750');
   winPrint.document.write(`
     <html><head><title>Cotización OT #${otNum}</title>
-    <style>body{font-family:Arial,sans-serif;padding:24px;font-size:13px}
-    h2{font-size:18px;margin-bottom:4px}table{width:100%;border-collapse:collapse;margin-top:16px}
-    th{background:#f5f5f5;padding:8px;text-align:left;border-bottom:2px solid #ddd;font-size:11px;text-transform:uppercase}
-    td{padding:8px;border-bottom:1px solid #eee}.total{font-size:16px;font-weight:700;text-align:right;margin-top:12px}</style>
+    <style>
+      body { font-family:Arial,sans-serif; padding:28px 32px; font-size:13px; color:#111; }
+      .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; padding-bottom:14px; border-bottom:2px solid #111; }
+      .empresa { max-width:55%; }
+      .empresa-nombre { font-size:18px; font-weight:700; margin-bottom:2px; }
+      .empresa-sub { font-size:11px; color:#555; line-height:1.6; }
+      .doc-info { text-align:right; }
+      .doc-titulo { font-size:22px; font-weight:900; letter-spacing:1px; }
+      .doc-num { font-size:13px; color:#555; margin-top:4px; }
+      table { width:100%; border-collapse:collapse; margin-top:20px; }
+      th { background:#f0f0f0; padding:9px 10px; text-align:left; border-bottom:2px solid #ccc; font-size:11px; text-transform:uppercase; letter-spacing:.4px; }
+      td { padding:9px 10px; border-bottom:1px solid #eee; }
+      td:nth-child(2), td:nth-child(3), td:nth-child(4),
+      th:nth-child(2), th:nth-child(3), th:nth-child(4) { text-align:right; }
+      .total-section { margin-top:16px; text-align:right; }
+      .total-line { display:flex; justify-content:flex-end; gap:40px; font-size:13px; padding:3px 0; color:#555; }
+      .total-final { font-size:18px; font-weight:700; color:#111; border-top:2px solid #111; margin-top:8px; padding-top:8px; display:flex; justify-content:flex-end; gap:40px; }
+      .footer { margin-top:32px; padding-top:14px; border-top:1px dashed #ccc; font-size:11px; color:#888; text-align:center; }
+      .ot-meta { background:#f8f8f8; border-radius:6px; padding:10px 14px; margin-bottom:20px; font-size:12px; color:#555; display:flex; gap:24px; }
+    </style>
     </head><body>
-    <h2>Cotización de reparación</h2>
-    <div style="color:#666;font-size:12px">OT #${otNum} · ${otActual.equipo||''} · Cliente: ${otActual.cliente_nombre}</div>
-    <table><thead><tr><th>Concepto</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>
-    ${conceptos.map(c=>`<tr><td>${c.descripcion}</td><td>${c.cantidad}</td><td>$${c.precio_unit.toFixed(2)}</td><td>$${(c.cantidad*c.precio_unit).toFixed(2)}</td></tr>`).join('')}
-    </tbody></table>
-    <div class="total">Total: $${total.toFixed(2)}</div>
+    <div class="header">
+      <div class="empresa">
+        ${logoTag}
+        <div class="empresa-nombre">${nombre}</div>
+        <div class="empresa-sub">${[rfc, telefono].filter(Boolean).join(' &nbsp;·&nbsp; ')}</div>
+      </div>
+      <div class="doc-info">
+        <div class="doc-titulo">COTIZACIÓN</div>
+        <div class="doc-num">OT #${otNum}</div>
+        <div class="doc-num" style="color:#888">${new Date().toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'})}</div>
+      </div>
+    </div>
+    <div class="ot-meta">
+      <span><b>Cliente:</b> ${otActual.cliente_nombre}</span>
+      ${otActual.equipo ? `<span><b>Equipo:</b> ${otActual.equipo}</span>` : ''}
+      ${otActual.num_serie ? `<span><b>Serie:</b> ${otActual.num_serie}</span>` : ''}
+    </div>
+    <table>
+      <thead><tr><th>Concepto</th><th>Cant.</th><th>Precio unit.</th><th>Subtotal</th></tr></thead>
+      <tbody>
+        ${conceptos.map(c=>`
+          <tr>
+            <td>${c.descripcion}</td>
+            <td>${c.cantidad}</td>
+            <td>$${Number(c.precio_unit).toFixed(2)}</td>
+            <td>$${(c.cantidad*c.precio_unit).toFixed(2)}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+    <div class="total-section">
+      <div class="total-line"><span>Subtotal</span><span>$${total.toFixed(2)}</span></div>
+      <div class="total-line"><span>IVA 16%</span><span>$${(total*0.16).toFixed(2)}</span></div>
+      <div class="total-final"><span>TOTAL</span><span>$${(total*1.16).toFixed(2)}</span></div>
+    </div>
+    <div class="footer">Cotización generada con ServiGest · Vigente por 15 días</div>
     </body></html>`);
   winPrint.document.close();
   winPrint.print();

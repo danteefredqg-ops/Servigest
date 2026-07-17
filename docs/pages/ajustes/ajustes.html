@@ -86,6 +86,29 @@
             <label class="form-label">Dirección fiscal</label>
             <textarea class="form-textarea" id="e-direccion" placeholder="Calle, número, colonia, ciudad, estado"></textarea>
           </div>
+
+          <!-- Logo / membrete -->
+          <div style="border-top:1px solid var(--color-border);padding-top:1rem;margin-top:.25rem">
+            <p style="font-size:11px;font-weight:600;color:var(--color-text-hint);text-transform:uppercase;letter-spacing:.5px;margin:0 0 .75rem">Logo de la empresa</p>
+            <div style="display:flex;align-items:flex-start;gap:1.25rem;flex-wrap:wrap">
+              <!-- Preview -->
+              <div id="logo-preview-wrap" style="width:120px;height:80px;border:1.5px dashed var(--color-border-md);border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;background:var(--color-bg-secondary);flex-shrink:0;overflow:hidden">
+                <img id="logo-preview-img" src="" alt="" style="max-width:100%;max-height:100%;object-fit:contain;display:none"/>
+                <span id="logo-preview-placeholder" style="font-size:11px;color:var(--color-text-hint);text-align:center;padding:8px">Sin logo</span>
+              </div>
+              <!-- Controles -->
+              <div style="display:flex;flex-direction:column;gap:.6rem;flex:1;min-width:200px">
+                <label class="btn btn-secondary btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;width:fit-content">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  Subir imagen
+                  <input type="file" id="logo-file-input" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display:none"/>
+                </label>
+                <span style="font-size:11px;color:var(--color-text-hint)">PNG, JPG, WebP o SVG · Máx 1 MB · Recomendado: 400×150 px</span>
+                <button class="btn btn-ghost btn-sm" id="btn-quitar-logo" style="color:#A32D2D;align-self:flex-start;display:none">✕ Quitar logo</button>
+              </div>
+            </div>
+          </div>
+
           <button class="btn btn-primary" id="btn-guardar-empresa" style="align-self:flex-start">Guardar cambios</button>
         </div>
       </div>
@@ -391,6 +414,44 @@
     });
   });
 
+  // ── Logo helpers ──────────────────────────────────────────────────────────
+  let logoDataUrl = null; // base64 pendiente de guardar
+  let logoQuitado = false;
+
+  function mostrarLogoPreview(url) {
+    const img  = document.getElementById('logo-preview-img');
+    const ph   = document.getElementById('logo-preview-placeholder');
+    const qBtn = document.getElementById('btn-quitar-logo');
+    if (url) {
+      img.src = url; img.style.display = 'block'; ph.style.display = 'none';
+      qBtn.style.display = 'inline-flex';
+    } else {
+      img.src = ''; img.style.display = 'none'; ph.style.display = 'block';
+      qBtn.style.display = 'none';
+    }
+  }
+
+  document.getElementById('logo-file-input').addEventListener('change', function() {
+    const file = this.files[0];
+    if (!file) return;
+    if (file.size > 1.2 * 1024 * 1024) {
+      showToast('La imagen no debe superar 1 MB', 'error'); this.value = ''; return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+      logoDataUrl = e.target.result;
+      logoQuitado = false;
+      mostrarLogoPreview(logoDataUrl);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById('btn-quitar-logo').addEventListener('click', () => {
+    logoDataUrl = null; logoQuitado = true;
+    mostrarLogoPreview(null);
+    document.getElementById('logo-file-input').value = '';
+  });
+
   // ── Cargar datos empresa ──────────────────────────────────────────────────
   async function loadAjustes() {
     try {
@@ -402,6 +463,9 @@
       document.getElementById('e-direccion').value = me.direccion_fiscal || '';
       document.getElementById('u-nombre').value    = me.nombre         || '';
       document.getElementById('u-email').value     = me.email          || '';
+
+      // Logo actual
+      mostrarLogoPreview(me.logo_url || null);
 
       // Mostrar plan actual
       const planMap = { trial:'plan-trial', basico:'plan-basico', profesional:'plan-pro', enterprise:'plan-ent' };
@@ -423,10 +487,18 @@
       direccion_fiscal: document.getElementById('e-direccion').value.trim(),
     };
     if (!body.nombre) return showToast('El nombre es requerido', 'error');
+
+    // Logo: subir nueva imagen o limpiar
+    if (logoDataUrl)   body.logo_url = logoDataUrl;
+    if (logoQuitado)   body.logo_url = '';   // vacío → el backend no hará COALESCE, pero necesitamos quitar
+
     try {
+      setBtnLoading('btn-guardar-empresa', true, 'Guardando...');
       await api.patch('/auth/empresa', body);
+      logoDataUrl = null; logoQuitado = false;
       showToast('✅ Datos guardados correctamente');
     } catch(err) { showToast(err.message, 'error'); }
+    finally { setBtnLoading('btn-guardar-empresa', false, 'Guardar cambios'); }
   });
 
   // ── Facturapi ─────────────────────────────────────────────────────────────
