@@ -221,6 +221,12 @@
     <div id="det-alertas-lista"></div>
   </div>
 
+  <!-- Historial de estados -->
+  <div id="det-historial-wrap" style="display:none">
+    <div class="det-label">Historial de estados</div>
+    <div id="det-historial-lista"></div>
+  </div>
+
   <!-- Cotización de reparación -->
   <div>
     <div class="det-label" style="margin-bottom:8px">Cotización de reparación</div>
@@ -700,6 +706,36 @@ async function verDetalle(id) {
     const btnWA = document.getElementById('det-btn-whatsapp');
     const mostrarWA = (o.estado === 'terminada' || o.estado === 'entregada') && o.cliente_telefono;
     btnWA.style.display = mostrarWA ? 'block' : 'none';
+
+    // Historial de estados
+    try {
+      const hist = await api.get(`/ordenes/${id}/historial-estados`);
+      const histWrap  = document.getElementById('det-historial-wrap');
+      const histLista = document.getElementById('det-historial-lista');
+      if (hist.length) {
+        const estadoColors = {
+          recibida:  '#6366f1', en_proceso: '#f59e0b', en_espera: '#ef4444',
+          terminada: '#10b981', entregada:  '#3b82f6', cancelada: '#6b7280',
+        };
+        histWrap.style.display = 'block';
+        histLista.innerHTML = hist.map(h => `
+          <div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--color-border);font-size:12px;align-items:flex-start">
+            <div style="flex:1">
+              <div style="display:flex;align-items:center;gap:6px">
+                ${h.estado_anterior ? `<span style="background:var(--color-bg-tertiary);padding:2px 7px;border-radius:10px;font-size:11px">${h.estado_anterior.replace(/_/g,' ')}</span>→` : ''}
+                <span style="background:${estadoColors[h.estado_nuevo]||'#6b7280'}20;color:${estadoColors[h.estado_nuevo]||'#6b7280'};padding:2px 7px;border-radius:10px;font-size:11px;font-weight:500">${h.estado_nuevo.replace(/_/g,' ')}</span>
+              </div>
+              ${h.notas ? `<div style="color:var(--color-text-muted);margin-top:3px;font-size:11px">${h.notas}</div>` : ''}
+            </div>
+            <div style="text-align:right;color:var(--color-text-hint);font-size:11px;flex-shrink:0">
+              <div>${formatDate(h.created_at)}</div>
+              ${h.usuario_nombre ? `<div style="margin-top:1px">${h.usuario_nombre}</div>` : ''}
+            </div>
+          </div>`).join('');
+      } else {
+        histWrap.style.display = 'none';
+      }
+    } catch(_) {}
 
     cargarCotizacionEnDetalle(o);
     Permisos.aplicar();

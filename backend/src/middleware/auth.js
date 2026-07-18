@@ -15,6 +15,7 @@ function authMiddleware(req, res, next) {
       rol:         payload.rol || 'admin',
       plan:        payload.plan,
       trial_hasta: payload.trial_hasta,
+      nombre:      payload.nombre || null,
     };
 
     // Trial expirado: tokens nuevos incluyen plan y trial_hasta

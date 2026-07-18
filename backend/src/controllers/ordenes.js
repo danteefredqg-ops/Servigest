@@ -229,6 +229,13 @@ async function cambiarEstado(req, res, next) {
       [estado, notas_tecnico || null, notas_entrega || null, req.params.id]
     );
 
+    await client.query(
+      `INSERT INTO ot_estados (ot_id, empresa_id, usuario_id, usuario_nombre, estado_anterior, estado_nuevo, notas)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [req.params.id, req.user.empresa_id, req.user.id, req.user.nombre || null,
+       ot.estado, estado, notas_tecnico || notas_entrega || null]
+    );
+
     // Si el técnico pone en_espera → crear alerta de falta de pieza
     if (estado === 'en_espera') {
       await client.query(
@@ -426,4 +433,14 @@ async function guardarCotizacion(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { getAll, getById, create, cambiarEstado, solicitarPieza, marcarPiezaDisponible, resumen, historialSerie, guardarCotizacion };
+async function getHistorialEstados(req, res, next) {
+  try {
+    const result = await db.query(
+      `SELECT * FROM ot_estados WHERE ot_id = $1 AND empresa_id = $2 ORDER BY created_at ASC`,
+      [req.params.id, req.user.empresa_id]
+    );
+    res.json(result.rows);
+  } catch(err) { next(err); }
+}
+
+module.exports = { getAll, getById, create, cambiarEstado, solicitarPieza, marcarPiezaDisponible, resumen, historialSerie, guardarCotizacion, getHistorialEstados };

@@ -370,6 +370,18 @@
             </div>
           </div>
 
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 0;border-top:1px solid var(--color-border)">
+            <div>
+              <div style="font-size:14px;font-weight:500">Compras — Excel</div>
+              <div style="font-size:12px;color:var(--color-text-muted);margin-top:4px">
+                Historial de órdenes de compra y estado de proveedores.
+              </div>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="exportar('compras')" style="white-space:nowrap">
+              Exportar .xlsx
+            </button>
+          </div>
+
           <div style="background:var(--color-bg-secondary);border-radius:var(--radius-md);padding:1rem;font-size:12px;color:var(--color-text-muted)">
             🔒 Solo el administrador puede descargar backups y exportaciones.
           </div>
@@ -709,7 +721,7 @@
     try {
       const token = api.getToken();
       const url   = (typeof CONFIG !== 'undefined' ? CONFIG.API_URL : null) || 'https://quintero-facturacion.up.railway.app/api';
-      const endpointMap = { clientes: '/clientes/export', pedidos: '/pedidos/export', cxc: '/cxc/export' };
+      const endpointMap = { clientes: '/clientes/export', pedidos: '/pedidos/export', cxc: '/cxc/export', compras: '/compras/export' };
       const res   = await fetch(url + endpointMap[tipo], {
         headers: { Authorization: `Bearer ${token}` }
       });

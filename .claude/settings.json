@@ -19,7 +19,17 @@
       "Bash(cp frontend/pages/clientes/clientes.html docs/pages/clientes/clientes.html)",
       "Bash(cp frontend/pages/pos/pos.html docs/pages/pos/pos.html)",
       "Bash(cp frontend/pages/ordenes/ordenes.html docs/pages/ordenes/ordenes.html)",
-      "Bash(cp frontend/js/api.js docs/js/api.js)"
+      "Bash(cp frontend/js/api.js docs/js/api.js)",
+      "PowerShell(Copy-Item \"c:\\\\Users\\\\dante\\\\OneDrive\\\\Escritorio\\\\servigest\\\\frontend\\\\pages\\\\auth\\\\login.html\" \"c:\\\\Users\\\\dante\\\\OneDrive\\\\Escritorio\\\\servigest\\\\docs\\\\pages\\\\auth\\\\login.html\" -Force)",
+      "PowerShell(Copy-Item \"c:\\\\Users\\\\dante\\\\OneDrive\\\\Escritorio\\\\servigest\\\\frontend\\\\pages\\\\auth\\\\trial-expirado.html\" \"c:\\\\Users\\\\dante\\\\OneDrive\\\\Escritorio\\\\servigest\\\\docs\\\\pages\\\\auth\\\\trial-expirado.html\" -Force)",
+      "PowerShell(Copy-Item \"c:\\\\Users\\\\dante\\\\OneDrive\\\\Escritorio\\\\servigest\\\\frontend\\\\pages\\\\auth\\\\reset-password.html\" \"c:\\\\Users\\\\dante\\\\OneDrive\\\\Escritorio\\\\servigest\\\\docs\\\\pages\\\\auth\\\\reset-password.html\" -Force)",
+      "PowerShell(Copy-Item \"c:\\\\Users\\\\dante\\\\OneDrive\\\\Escritorio\\\\servigest\\\\frontend\\\\js\\\\api.js\" \"c:\\\\Users\\\\dante\\\\OneDrive\\\\Escritorio\\\\servigest\\\\docs\\\\js\\\\api.js\" -Force)",
+      "Bash(grep -n '`n' \"c:/Users/dante/OneDrive/Escritorio/servigest/frontend/pages/dashboard/dashboard.html\")",
+      "Bash(curl -s https://servigest-production-a7c5.up.railway.app/health)",
+      "Bash(curl -s -X POST https://servigest-production-a7c5.up.railway.app/api/auth/register -H 'Content-Type: application/json' -d '{\"nombre\":\"Carlos Empleado\",\"email\":\"qa_test_2026@servigest.mx\",\"password\":\"Test1234!\",\"empresa\":\"Taller QA Demo\"}')",
+      "Bash(python -m json.tool)",
+      "Bash(curl -s -X POST https://servigest-production-a7c5.up.railway.app/api/pedidos -H 'Content-Type: application/json' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImY1NGY1OGU3LTFiNWYtNGRiNy04YjEzLTI0MDViY2U1ODE4MCIsImVtcHJlc2FfaWQiOiJkNmM4NWYzNC1lNmMwLTQ1YjMtYTljMy1kN2U0MjA3MTFiNjIiLCJyb2wiOiJhZG1pbiIsInBsYW4iOiJ0cmlhbCIsInRyaWFsX2hhc3RhIjoiMjAyNi0wOC0xNlQyMTowNDoyMC45NDBaIiwiaWF0IjoxNzg0MzIyMjg2LCJleHAiOjE3ODQ5MjcwODZ9.l8UW9HCX2gop4TKaaGJ5ohi_SosnWk-WVqKszF2APwM' -d '{ *)",
+      "Bash(npm install *)"
     ]
   }
 }

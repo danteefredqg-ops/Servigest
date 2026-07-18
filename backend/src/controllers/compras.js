@@ -75,4 +75,32 @@ async function updateEstado(req, res, next) {
   }
 }
 
-module.exports = { getAll, create, updateEstado };
+async function exportExcel(req, res, next) {
+  try {
+    const XLSX = require('xlsx');
+    const result = await db.query(
+      `SELECT proveedor, descripcion, total, estado, fecha_entrega, created_at
+       FROM compras WHERE empresa_id = $1 ORDER BY created_at DESC`,
+      [req.user.empresa_id]
+    );
+    const rows = result.rows.map(r => ({
+      'Proveedor':   r.proveedor,
+      'Descripción': r.descripcion || '',
+      'Total ($)':   Number(r.total),
+      'Estado':      r.estado,
+      'Entrega':     r.fecha_entrega ? new Date(r.fecha_entrega).toLocaleDateString('es-MX') : '',
+      'Fecha':       new Date(r.created_at).toLocaleDateString('es-MX'),
+    }));
+    const ws  = XLSX.utils.json_to_sheet(rows);
+    const wb  = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Compras');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="compras.xlsx"',
+    });
+    res.send(buf);
+  } catch(err) { next(err); }
+}
+
+module.exports = { getAll, create, updateEstado, exportExcel };

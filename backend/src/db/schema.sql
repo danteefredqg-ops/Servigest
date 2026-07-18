@@ -383,3 +383,17 @@ ALTER TABLE clientes ADD COLUMN IF NOT EXISTS cp                  VARCHAR(10);
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS notas               TEXT;
 ALTER TABLE pedidos  ADD COLUMN IF NOT EXISTS forma_pago          VARCHAR(30) DEFAULT 'por_definir';
 ALTER TABLE empresas ALTER COLUMN logo_url TYPE TEXT;
+
+-- ── HISTORIAL DE ESTADOS OT ───────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS ot_estados (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ot_id           UUID NOT NULL REFERENCES ordenes_trabajo(id) ON DELETE CASCADE,
+  empresa_id      UUID NOT NULL,
+  usuario_id      UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  usuario_nombre  TEXT,
+  estado_anterior VARCHAR(30),
+  estado_nuevo    VARCHAR(30) NOT NULL,
+  notas           TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ot_estados_ot ON ot_estados(ot_id);

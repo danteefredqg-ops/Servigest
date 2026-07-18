@@ -1,4 +1,5 @@
-const { log } = require('../middleware/audit');
+const { log }             = require('../middleware/audit');
+const { sendPasswordReset } = require('../services/email');
 const bcrypt = require('bcryptjs');
 const jwt    = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -137,6 +138,9 @@ async function me(req, res, next) {
 async function updateEmpresa(req, res, next) {
   try {
     const { nombre, rfc, regimen_fiscal, direccion_fiscal, cp, facturapi_key, logo_url } = req.body;
+    if (logo_url && logo_url.startsWith('data:') && logo_url.length > 1.5 * 1024 * 1024) {
+      return res.status(400).json({ error: 'El logo no debe superar 1 MB' });
+    }
     const result = await db.query(
       `UPDATE empresas
        SET nombre           = COALESCE($1, nombre),
@@ -179,10 +183,7 @@ async function forgotPassword(req, res, next) {
     const frontendUrl = process.env.FRONTEND_URL || 'https://danteefredqg-ops.github.io/Servigest';
     const resetUrl    = `${frontendUrl}/pages/auth/reset-password.html?token=${token}`;
 
-    // ── Email stub: reemplazar con Resend / SendGrid cuando se elija proveedor ──
-    console.log(`[RESET-PASSWORD] Usuario: ${user.nombre} <${email}>`);
-    console.log(`[RESET-PASSWORD] URL de recuperación (válida 1 hora): ${resetUrl}`);
-    // await emailService.send({ to: email, subject: 'Recuperar contraseña ServiGest', html: `...${resetUrl}...` });
+    await sendPasswordReset(email, user.nombre, resetUrl);
 
     res.json({ ok: true });
   } catch (err) { next(err); }
@@ -213,7 +214,7 @@ async function resetPassword(req, res, next) {
 
 function signToken(user, empresa_id, plan, trial_hasta) {
   return jwt.sign(
-    { id: user.id, empresa_id, rol: user.rol, plan, trial_hasta },
+    { id: user.id, empresa_id, rol: user.rol, plan, trial_hasta, nombre: user.nombre || null },
     process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );
