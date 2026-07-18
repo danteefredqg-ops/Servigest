@@ -135,14 +135,11 @@
   }
 
   // ── Modal nueva cotización ────────────────────────────────────────────────
-  let itemCount = 0;
-
   document.getElementById('btn-nueva').addEventListener('click', async () => {
     const clientes = await api.clientes.list();
     const sel = document.getElementById('cot-cliente');
     sel.innerHTML = clientes.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
     document.getElementById('items-container').innerHTML = '';
-    itemCount = 0;
     agregarItem();
     actualizarTotal();
     openModal('modal-cotizacion');
@@ -151,7 +148,6 @@
   document.getElementById('btn-add-item').addEventListener('click', agregarItem);
 
   function agregarItem() {
-    const i = itemCount++;
     const div = document.createElement('div');
     div.className = 'grid-2';
     div.style.gap = '8px';

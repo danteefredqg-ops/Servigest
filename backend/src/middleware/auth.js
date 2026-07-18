@@ -48,6 +48,5 @@ function roles(...permitidos) {
 // ── Atajos semánticos ─────────────────────────────────────────────────────────
 const soloAdmin      = roles('admin', 'superadmin');
 const adminOContador = roles('admin', 'superadmin', 'contador');
-const noOperador     = roles('admin', 'superadmin', 'contador');
 
-module.exports = { authMiddleware, roles, soloAdmin, adminOContador, noOperador };
+module.exports = { authMiddleware, roles, soloAdmin, adminOContador };

@@ -60,4 +60,4 @@ async function toggle(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { getAll, toggle, MODULOS_DISPONIBLES };
+module.exports = { getAll, toggle };
