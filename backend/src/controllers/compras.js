@@ -75,6 +75,36 @@ async function updateEstado(req, res, next) {
   }
 }
 
+async function adjuntarPDF(req, res, next) {
+  try {
+    const { archivo_base64, nombre } = req.body;
+    if (!archivo_base64) return res.status(400).json({ error: 'archivo_base64 es requerido' });
+
+    const MAX = 7 * 1024 * 1024; // ~5 MB PDF → ~7 MB base64
+    if (archivo_base64.length > MAX) return res.status(400).json({ error: 'El PDF no debe superar 5 MB' });
+
+    const result = await db.query(
+      `UPDATE compras SET archivo_pdf = $1, archivo_nombre = $2
+       WHERE id = $3 AND empresa_id = $4 RETURNING id, archivo_nombre`,
+      [archivo_base64, nombre || 'documento.pdf', req.params.id, req.user.empresa_id]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Compra no encontrada' });
+    res.json({ ok: true, nombre: result.rows[0].archivo_nombre });
+  } catch(err) { next(err); }
+}
+
+async function getPDF(req, res, next) {
+  try {
+    const result = await db.query(
+      'SELECT archivo_pdf, archivo_nombre FROM compras WHERE id = $1 AND empresa_id = $2',
+      [req.params.id, req.user.empresa_id]
+    );
+    const row = result.rows[0];
+    if (!row || !row.archivo_pdf) return res.status(404).json({ error: 'Sin archivo adjunto' });
+    res.json({ archivo_base64: row.archivo_pdf, nombre: row.archivo_nombre });
+  } catch(err) { next(err); }
+}
+
 async function exportExcel(req, res, next) {
   try {
     const XLSX = require('xlsx');
@@ -103,4 +133,4 @@ async function exportExcel(req, res, next) {
   } catch(err) { next(err); }
 }
 
-module.exports = { getAll, create, updateEstado, exportExcel };
+module.exports = { getAll, create, updateEstado, adjuntarPDF, getPDF, exportExcel };

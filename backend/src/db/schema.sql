@@ -382,6 +382,8 @@ ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMPTZ;
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS cp                  VARCHAR(10);
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS notas               TEXT;
 ALTER TABLE pedidos  ADD COLUMN IF NOT EXISTS forma_pago          VARCHAR(30) DEFAULT 'por_definir';
+ALTER TABLE compras  ADD COLUMN IF NOT EXISTS archivo_pdf         TEXT;
+ALTER TABLE compras  ADD COLUMN IF NOT EXISTS archivo_nombre      VARCHAR(255);
 ALTER TABLE empresas ALTER COLUMN logo_url TYPE TEXT;
 
 -- ── HISTORIAL DE ESTADOS OT ───────────────────────────────────────────────────

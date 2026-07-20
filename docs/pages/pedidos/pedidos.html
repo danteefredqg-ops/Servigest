@@ -166,10 +166,15 @@
   </div>
 
   <!-- Acciones -->
-  <div class="flex gap-8" style="margin-top:auto;padding-top:.5rem">
-    <button class="btn btn-secondary" style="flex:1" id="det-btn-factura" onclick="crearFacturaDesdePedido()">
-      Crear factura CFDI
-    </button>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-top:auto;padding-top:.5rem">
+    <div class="flex gap-8">
+      <button class="btn btn-secondary" style="flex:1" id="det-btn-factura" onclick="crearFacturaDesdePedido()">
+        Crear factura CFDI
+      </button>
+      <button class="btn btn-secondary" onclick="imprimirPedido()" title="Imprimir orden de venta">
+        🖨 Imprimir
+      </button>
+    </div>
     <button class="btn btn-ghost" data-permiso="eliminar" id="det-btn-eliminar" onclick="eliminarPedidoActual()">
       Eliminar
     </button>
@@ -419,6 +424,107 @@ async function eliminarPedidoActual() {
     cerrarDetalle();
     loadPedidos();
   } catch(err) { showToast(err.message, 'error'); }
+}
+
+async function imprimirPedido() {
+  if (!pedidoActual) return;
+  const p = pedidoActual;
+  let emp = {};
+  try { emp = await api.get('/auth/me'); } catch(_) {}
+
+  const logoTag = emp.logo_url
+    ? `<img src="${emp.logo_url}" style="max-height:65px;max-width:200px;object-fit:contain;display:block"/>`
+    : '';
+  const numPed  = String(p.numero).padStart(4, '0');
+  const fechaStr = new Date(p.created_at).toLocaleDateString('es-MX', { year:'numeric', month:'long', day:'numeric' });
+
+  const itemsHTML = (p.items || []).map(i => `
+    <tr>
+      <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:13px">${i.descripcion}</td>
+      <td style="text-align:center;padding:9px 8px;border-bottom:1px solid #eee;font-size:13px">${i.cantidad}</td>
+      <td style="text-align:right;padding:9px 8px;border-bottom:1px solid #eee;font-size:13px">${formatMoney(i.precio_unit)}</td>
+      ${i.descuento ? `<td style="text-align:center;padding:9px 8px;border-bottom:1px solid #eee;font-size:13px">${i.descuento}%</td>` : '<td></td>'}
+      <td style="text-align:right;padding:9px 8px;border-bottom:1px solid #eee;font-size:13px;font-weight:600">${formatMoney(i.subtotal)}</td>
+    </tr>`).join('');
+
+  const win = window.open('', '_blank', 'width=800,height=900');
+  win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"/>
+  <title>Pedido #${numPed}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Arial,sans-serif;color:#1a1a2e;padding:36px;font-size:13px}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:18px;border-bottom:2px solid #1a1a2e}
+    .empresa-info{max-width:55%}
+    .empresa-nombre{font-size:17px;font-weight:700;margin-top:8px}
+    .empresa-datos{font-size:11px;color:#555;margin-top:4px;line-height:1.6}
+    .doc-titulo{text-align:right}
+    .doc-titulo h2{font-size:22px;font-weight:700;color:#1a1a2e;letter-spacing:.5px}
+    .doc-titulo p{font-size:12px;color:#555;margin-top:4px}
+    .cliente-box{background:#f8f8f8;border-radius:6px;padding:14px 16px;margin-bottom:22px;display:flex;gap:40px}
+    .cliente-box .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#888;margin-bottom:3px}
+    .cliente-box .val{font-size:13px;font-weight:500}
+    table{width:100%;border-collapse:collapse;margin-bottom:20px}
+    thead tr{background:#1a1a2e;color:#fff}
+    thead th{padding:10px 8px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+    thead th:not(:first-child){text-align:right}
+    thead th:nth-child(2){text-align:center}
+    .totales{margin-left:auto;width:260px}
+    .t-row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px}
+    .t-row.grand{border-top:2px solid #1a1a2e;margin-top:6px;padding-top:10px;font-size:16px;font-weight:700}
+    .footer{margin-top:32px;border-top:1px solid #ddd;padding-top:14px;text-align:center;font-size:11px;color:#888}
+    @media print{body{padding:18px}.no-print{display:none}}
+  </style></head><body>
+  <div class="no-print" style="margin-bottom:16px">
+    <button onclick="window.print()" style="padding:8px 20px;background:#1a1a2e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px">🖨 Imprimir</button>
+    <button onclick="window.close()" style="margin-left:10px;padding:8px 16px;border:1px solid #ccc;border-radius:6px;cursor:pointer;font-size:13px">Cerrar</button>
+  </div>
+
+  <div class="header">
+    <div class="empresa-info">
+      ${logoTag}
+      <div class="empresa-nombre">${emp.empresa_nombre || emp.nombre || ''}</div>
+      <div class="empresa-datos">
+        ${emp.rfc ? 'RFC: ' + emp.rfc + '<br/>' : ''}
+        ${emp.direccion_fiscal || ''}
+      </div>
+    </div>
+    <div class="doc-titulo">
+      <h2>ORDEN DE VENTA</h2>
+      <p><strong>#${numPed}</strong></p>
+      <p style="margin-top:6px">Fecha: ${fechaStr}</p>
+      ${p.estado ? `<p style="margin-top:4px">Estado: <strong>${p.estado.replace('_',' ').toUpperCase()}</strong></p>` : ''}
+    </div>
+  </div>
+
+  <div class="cliente-box">
+    <div><div class="lbl">Cliente</div><div class="val">${p.cliente_nombre}</div></div>
+    ${p.cliente_telefono ? `<div><div class="lbl">Teléfono</div><div class="val">${p.cliente_telefono}</div></div>` : ''}
+    ${p.cliente_rfc ? `<div><div class="lbl">RFC</div><div class="val">${p.cliente_rfc}</div></div>` : ''}
+  </div>
+
+  <table>
+    <thead><tr>
+      <th>Descripción</th>
+      <th style="text-align:center;width:70px">Cant.</th>
+      <th style="text-align:right;width:110px">Precio unit.</th>
+      <th style="text-align:center;width:70px">Desc.</th>
+      <th style="text-align:right;width:110px">Subtotal</th>
+    </tr></thead>
+    <tbody>${itemsHTML}</tbody>
+  </table>
+
+  <div class="totales">
+    <div class="t-row"><span>Subtotal</span><span>${formatMoney(p.subtotal || 0)}</span></div>
+    <div class="t-row"><span>IVA (16%)</span><span>${formatMoney(p.impuestos || 0)}</span></div>
+    <div class="t-row grand"><span>TOTAL</span><span>${formatMoney(p.total || 0)}</span></div>
+  </div>
+
+  ${p.notas ? `<div style="margin-top:20px;padding:12px;background:#f8f8f8;border-radius:6px;font-size:12px"><strong>Notas:</strong> ${p.notas}</div>` : ''}
+
+  <div class="footer">${emp.empresa_nombre || ''} · Gracias por su preferencia</div>
+  </body></html>`);
+  win.document.close();
+  setTimeout(() => win.print(), 350);
 }
 
 async function crearFacturaDesdePedido() {

@@ -46,6 +46,7 @@
               <th>Total</th>
               <th>Entrega</th>
               <th>Estado</th>
+              <th>PDF</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -121,6 +122,12 @@
         const acciones = c.estado === 'pendiente' ? `
           <button class="btn btn-secondary btn-sm" onclick="cambiarEstado('${c.id}','recibida')">✓ Recibida</button>
           <button class="btn btn-ghost btn-sm"     onclick="cambiarEstado('${c.id}','cancelada')">Cancelar</button>` : '';
+        const pdfBtn = c.archivo_nombre
+          ? `<button class="btn btn-secondary btn-sm" onclick="verPDF('${c.id}')" title="${c.archivo_nombre}">📄 Ver</button>`
+          : `<label class="btn btn-ghost btn-sm" style="cursor:pointer" title="Adjuntar PDF del proveedor">
+               📎 Adjuntar
+               <input type="file" accept="application/pdf" style="display:none" onchange="subirPDF('${c.id}',this)"/>
+             </label>`;
         return `<tr>
           <td style="font-size:13px;font-weight:500">${c.proveedor}</td>
           <td style="font-size:13px;color:var(--color-text-muted)">${c.descripcion || '—'}</td>
@@ -128,6 +135,7 @@
           <td style="font-weight:500">${formatMoney(c.total)}</td>
           <td style="font-size:12px;color:var(--color-text-muted)">${c.fecha_entrega ? formatDate(c.fecha_entrega) : '—'}</td>
           <td>${estadoBadge(c.estado)}</td>
+          <td>${pdfBtn}</td>
           <td><div class="flex gap-8">${acciones}</div></td>
         </tr>`;
       }).join('');
@@ -212,6 +220,30 @@
       loadCompras();
     } catch(err) { showToast(err.message, 'error'); }
   });
+
+  async function subirPDF(id, input) {
+    const file = input.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { showToast('El PDF no debe superar 5 MB', 'error'); input.value = ''; return; }
+    showToast('Subiendo PDF...');
+    const reader = new FileReader();
+    reader.onload = async e => {
+      try {
+        await api.post(`/compras/${id}/pdf`, { archivo_base64: e.target.result, nombre: file.name });
+        showToast('✅ PDF adjuntado');
+        loadCompras();
+      } catch(err) { showToast(err.message, 'error'); }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function verPDF(id) {
+    try {
+      const data = await api.get(`/compras/${id}/pdf`);
+      const win  = window.open('');
+      win.document.write(`<iframe src="${data.archivo_base64}" style="width:100%;height:100vh;border:none"></iframe>`);
+    } catch(err) { showToast(err.message, 'error'); }
+  }
 
   async function cambiarEstado(id, estado) {
     const msgs = { recibida: '¿Marcar como recibida? Esto actualizará el stock de los productos.', cancelada: '¿Cancelar esta orden?' };
