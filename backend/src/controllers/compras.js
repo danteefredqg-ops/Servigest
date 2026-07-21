@@ -75,6 +75,24 @@ async function updateEstado(req, res, next) {
   }
 }
 
+async function remove(req, res, next) {
+  try {
+    const result = await db.query(
+      `DELETE FROM compras WHERE id = $1 AND empresa_id = $2 AND estado != 'recibida' RETURNING id`,
+      [req.params.id, req.user.empresa_id]
+    );
+    if (!result.rows[0]) {
+      const existe = await db.query(
+        'SELECT estado FROM compras WHERE id = $1 AND empresa_id = $2',
+        [req.params.id, req.user.empresa_id]
+      );
+      if (!existe.rows[0]) return res.status(404).json({ error: 'Compra no encontrada' });
+      return res.status(400).json({ error: 'No se puede eliminar una compra ya recibida (ya afectó el stock)' });
+    }
+    res.json({ ok: true });
+  } catch(err) { next(err); }
+}
+
 async function adjuntarPDF(req, res, next) {
   try {
     const { archivo_base64, nombre } = req.body;
@@ -133,4 +151,4 @@ async function exportExcel(req, res, next) {
   } catch(err) { next(err); }
 }
 
-module.exports = { getAll, create, updateEstado, adjuntarPDF, getPDF, exportExcel };
+module.exports = { getAll, create, updateEstado, remove, adjuntarPDF, getPDF, exportExcel };

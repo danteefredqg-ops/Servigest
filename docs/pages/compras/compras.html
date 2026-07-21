@@ -119,9 +119,11 @@
         return;
       }
       tbody.innerHTML = lista.map(c => {
-        const acciones = c.estado === 'pendiente' ? `
-          <button class="btn btn-secondary btn-sm" onclick="cambiarEstado('${c.id}','recibida')">✓ Recibida</button>
-          <button class="btn btn-ghost btn-sm"     onclick="cambiarEstado('${c.id}','cancelada')">Cancelar</button>` : '';
+        const acciones = [
+          c.estado === 'pendiente' ? `<button class="btn btn-secondary btn-sm" onclick="cambiarEstado('${c.id}','recibida')">✓ Recibida</button>` : '',
+          c.estado === 'pendiente' ? `<button class="btn btn-ghost btn-sm" onclick="cambiarEstado('${c.id}','cancelada')">Cancelar</button>` : '',
+          c.estado !== 'recibida'  ? `<button class="btn btn-ghost btn-sm" style="color:#A32D2D" onclick="eliminarCompra('${c.id}')">🗑 Eliminar</button>` : '',
+        ].join('');
         const pdfBtn = c.archivo_nombre
           ? `<button class="btn btn-secondary btn-sm" onclick="verPDF('${c.id}')" title="${c.archivo_nombre}">📄 Ver</button>`
           : `<label class="btn btn-ghost btn-sm" style="cursor:pointer" title="Adjuntar PDF del proveedor">
@@ -242,6 +244,15 @@
       const data = await api.get(`/compras/${id}/pdf`);
       const win  = window.open('');
       win.document.write(`<iframe src="${data.archivo_base64}" style="width:100%;height:100vh;border:none"></iframe>`);
+    } catch(err) { showToast(err.message, 'error'); }
+  }
+
+  async function eliminarCompra(id) {
+    if (!confirm('¿Eliminar esta orden de compra?')) return;
+    try {
+      await api.delete(`/compras/${id}`);
+      showToast('Orden eliminada');
+      loadCompras();
     } catch(err) { showToast(err.message, 'error'); }
   }
 
