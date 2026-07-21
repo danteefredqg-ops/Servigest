@@ -115,7 +115,7 @@
       const lista = await api.compras.list({ estado: filtroEstado });
       const tbody = document.getElementById('tabla-compras');
       if (!lista.length) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Sin órdenes de compra</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Sin órdenes de compra</td></tr>`;
         return;
       }
       tbody.innerHTML = lista.map(c => {
