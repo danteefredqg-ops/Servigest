@@ -166,6 +166,16 @@ const api = {
     cancelar: (id,m)  => api.post(`/facturas/${id}/cancelar`, { motivo: m }),
   },
 
+  // ── CxP ───────────────────────────────────────────────────────────────────
+  cxp: {
+    resumen:  ()       => api.get('/cxp/resumen'),
+    list:     (f={})   => api.get('/cxp' + buildQuery(f)),
+    create:   (b)      => api.post('/cxp', b),
+    pago:     (id,b)   => api.post(`/cxp/${id}/pago`, b),
+    historial:(id)     => api.get(`/cxp/${id}/historial`),
+    remove:   (id)     => api.delete(`/cxp/${id}`),
+  },
+
   // ── CxC ───────────────────────────────────────────────────────────────────
   cxc: {
     resumen:       ()       => api.get('/cxc/resumen'),

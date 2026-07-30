@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ServiGest — Cuentas por Pagar</title>
+  <link rel="stylesheet" href="../../css/base.css" />
+  <link rel="stylesheet" href="../../css/components.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="logo"><div class="logo-dot"></div>ServiGest</div>
+    <nav id="sidebar-nav"></nav>
+    <div class="sidebar-user">
+      <div class="user-avatar">--</div>
+      <div><div class="user-name">Cargando...</div><div class="user-empresa"></div></div>
+    </div>
+    <button id="btn-logout" class="btn btn-ghost btn-sm" style="margin-top:8px">Cerrar sesión</button>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Cuentas por Pagar</h1>
+        <p class="page-subtitle">Deudas a proveedores y compromisos de pago</p>
+      </div>
+      <button class="btn btn-primary" id="btn-nueva">+ Nueva CxP</button>
+    </div>
+
+    <!-- Tarjetas resumen -->
+    <div class="grid-3" style="margin-bottom:1.5rem">
+      <div class="card" style="padding:1.2rem">
+        <div style="font-size:12px;color:var(--color-text-muted);margin-bottom:4px">Total adeudado</div>
+        <div id="res-total" style="font-size:1.6rem;font-weight:700;color:var(--color-primary)">$0.00</div>
+      </div>
+      <div class="card" style="padding:1.2rem">
+        <div style="font-size:12px;color:var(--color-text-muted);margin-bottom:4px">Vencidas</div>
+        <div id="res-vencido" style="font-size:1.6rem;font-weight:700;color:#A32D2D">$0.00</div>
+      </div>
+      <div class="card" style="padding:1.2rem">
+        <div style="font-size:12px;color:var(--color-text-muted);margin-bottom:4px">Por vencer (7 días)</div>
+        <div id="res-por-vencer" style="font-size:1.6rem;font-weight:700;color:#b45309">$0.00</div>
+      </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="flex gap-8" style="margin-bottom:1rem">
+      <button class="btn btn-secondary btn-sm filtro-btn active" data-estado="">Todas</button>
+      <button class="btn btn-secondary btn-sm filtro-btn" data-estado="pendiente">Pendientes</button>
+      <button class="btn btn-secondary btn-sm filtro-btn" data-estado="parcial">Parciales</button>
+      <button class="btn btn-secondary btn-sm filtro-btn" data-estado="vencida">Vencidas</button>
+      <button class="btn btn-secondary btn-sm filtro-btn" data-estado="pagada">Pagadas</button>
+    </div>
+
+    <div class="card" style="padding:0">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Proveedor</th>
+              <th>Descripción</th>
+              <th>Total</th>
+              <th>Pagado</th>
+              <th>Saldo</th>
+              <th>Vencimiento</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-cxp">
+            <tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal nueva CxP -->
+<div class="modal-overlay" id="modal-nueva">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <span class="modal-title">Nueva cuenta por pagar</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modal-nueva')">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:1rem">
+      <div class="form-group">
+        <label class="form-label">Proveedor *</label>
+        <input class="form-input" id="n-proveedor" placeholder="Nombre del proveedor" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descripción</label>
+        <input class="form-input" id="n-descripcion" placeholder="Ej. Refacciones factura #1023" />
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Monto total *</label>
+          <input class="form-input" id="n-monto" type="number" min="0.01" step="0.01" placeholder="0.00" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fecha de vencimiento</label>
+          <input class="form-input" id="n-vencimiento" type="date" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Vincular a orden de compra (opcional)</label>
+        <select class="form-select" id="n-compra-id">
+          <option value="">— Sin vincular —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notas</label>
+        <input class="form-input" id="n-notas" placeholder="Condiciones de pago, referencia, etc." />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-nueva')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-nueva">Registrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal registrar pago -->
+<div class="modal-overlay" id="modal-pago">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <span class="modal-title">Registrar pago</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modal-pago')">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:1rem">
+      <div style="background:var(--color-bg-secondary);border-radius:8px;padding:12px">
+        <div style="font-size:12px;color:var(--color-text-muted)">Proveedor</div>
+        <div id="p-proveedor" style="font-weight:600"></div>
+        <div style="font-size:12px;color:var(--color-text-muted);margin-top:6px">Saldo pendiente</div>
+        <div id="p-saldo" style="font-size:1.3rem;font-weight:700;color:#A32D2D"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Monto a pagar *</label>
+        <input class="form-input" id="p-monto" type="number" min="0.01" step="0.01" placeholder="0.00" />
+        <span style="font-size:11px;color:var(--color-text-muted)">Si pagas más del saldo, se aplica solo el saldo</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notas</label>
+        <input class="form-input" id="p-notas" placeholder="Transferencia, cheque #, fecha valor..." />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-pago')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-confirmar-pago">Confirmar pago</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal historial de pagos -->
+<div class="modal-overlay" id="modal-historial">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <span class="modal-title">Historial de pagos</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modal-historial')">✕</button>
+    </div>
+    <div id="historial-content" style="min-height:80px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-historial')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/api.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/sidebar.js"></script>
+<script src="../../js/global-search.js"></script>
+<script>
+  requireAuth();
+  initSidebar('cxp');
+
+  let filtroEstado = '';
+  let pagoActivoId = null;
+
+  function estadoBadgeCxp(estado) {
+    const map = {
+      pendiente: ['Pendiente', 'var(--color-warning,#b45309)',    '#fef3c7'],
+      parcial:   ['Parcial',   '#1d4ed8',                         '#dbeafe'],
+      vencida:   ['Vencida',   '#A32D2D',                         '#fee2e2'],
+      pagada:    ['Pagada',    'var(--color-success,#15803d)',     '#dcfce7'],
+    };
+    const [label, color, bg] = map[estado] || ['—','',''];
+    return `<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;color:${color};background:${bg}">${label}</span>`;
+  }
+
+  async function loadResumen() {
+    try {
+      const r = await api.cxp.resumen();
+      document.getElementById('res-total').textContent      = formatMoney(r.total_adeudado);
+      document.getElementById('res-vencido').textContent    = formatMoney(r.total_vencido);
+      document.getElementById('res-por-vencer').textContent = formatMoney(r.por_vencer_7d);
+    } catch(_) {}
+  }
+
+  async function loadCxp() {
+    try {
+      const lista = await api.cxp.list({ estado: filtroEstado });
+      const tbody = document.getElementById('tabla-cxp');
+      if (!lista.length) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Sin cuentas por pagar</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = lista.map(c => {
+        const venc = c.fecha_vencimiento
+          ? new Date(c.fecha_vencimiento + 'T12:00:00').toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric' })
+          : '—';
+        const saldoNum = Number(c.saldo);
+        const esPagada = c.estado === 'pagada';
+        return `<tr>
+          <td style="font-weight:500;font-size:13px">${c.proveedor}</td>
+          <td style="font-size:12px;color:var(--color-text-muted)">${c.descripcion || '—'}</td>
+          <td>${formatMoney(c.monto_total)}</td>
+          <td style="color:var(--color-success,#15803d)">${formatMoney(c.monto_pagado)}</td>
+          <td style="font-weight:600;color:${saldoNum > 0 ? '#A32D2D' : 'inherit'}">${formatMoney(saldoNum)}</td>
+          <td style="font-size:12px">${venc}</td>
+          <td>${estadoBadgeCxp(c.estado)}</td>
+          <td>
+            <div class="flex gap-8">
+              ${!esPagada ? `<button class="btn btn-primary btn-sm" onclick="abrirPago('${c.id}','${c.proveedor}',${saldoNum})">$ Pagar</button>` : ''}
+              <button class="btn btn-ghost btn-sm" onclick="verHistorial('${c.id}')">📋</button>
+              ${esPagada || Number(c.monto_pagado) === 0
+                ? `<button class="btn btn-ghost btn-sm" style="color:#A32D2D" onclick="eliminarCxp('${c.id}',${Number(c.monto_pagado) > 0})">🗑</button>`
+                : ''}
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    } catch(err) { showToast(err.message, 'error'); }
+  }
+
+  async function cargarCompras() {
+    try {
+      const lista = await api.compras.list({ estado: 'recibida' });
+      const sel = document.getElementById('n-compra-id');
+      const opts = lista.map(c =>
+        `<option value="${c.id}">${c.proveedor} — ${formatMoney(c.total)} (${formatDate(c.created_at)})</option>`
+      ).join('');
+      sel.innerHTML = '<option value="">— Sin vincular —</option>' + opts;
+    } catch(_) {}
+  }
+
+  document.querySelectorAll('.filtro-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      filtroEstado = btn.dataset.estado;
+      loadCxp();
+    });
+  });
+
+  document.getElementById('btn-nueva').addEventListener('click', async () => {
+    document.getElementById('n-proveedor').value   = '';
+    document.getElementById('n-descripcion').value = '';
+    document.getElementById('n-monto').value       = '';
+    document.getElementById('n-vencimiento').value = '';
+    document.getElementById('n-notas').value       = '';
+    await cargarCompras();
+    openModal('modal-nueva');
+  });
+
+  document.getElementById('btn-guardar-nueva').addEventListener('click', async () => {
+    const proveedor = document.getElementById('n-proveedor').value.trim();
+    const monto     = parseFloat(document.getElementById('n-monto').value);
+    if (!proveedor) return showToast('El proveedor es requerido', 'error');
+    if (!monto || monto <= 0) return showToast('El monto debe ser mayor a cero', 'error');
+    try {
+      await api.cxp.create({
+        proveedor,
+        descripcion:       document.getElementById('n-descripcion').value || null,
+        monto_total:       monto,
+        fecha_vencimiento: document.getElementById('n-vencimiento').value || null,
+        compra_id:         document.getElementById('n-compra-id').value   || null,
+        notas:             document.getElementById('n-notas').value       || null,
+      });
+      showToast('CxP registrada');
+      closeModal('modal-nueva');
+      loadCxp();
+      loadResumen();
+    } catch(err) { showToast(err.message, 'error'); }
+  });
+
+  function abrirPago(id, proveedor, saldo) {
+    pagoActivoId = id;
+    document.getElementById('p-proveedor').textContent = proveedor;
+    document.getElementById('p-saldo').textContent     = formatMoney(saldo);
+    document.getElementById('p-monto').value           = saldo.toFixed(2);
+    document.getElementById('p-notas').value           = '';
+    openModal('modal-pago');
+  }
+
+  document.getElementById('btn-confirmar-pago').addEventListener('click', async () => {
+    const monto = parseFloat(document.getElementById('p-monto').value);
+    if (!monto || monto <= 0) return showToast('Ingresa un monto válido', 'error');
+    try {
+      const r = await api.cxp.pago(pagoActivoId, {
+        monto,
+        notas: document.getElementById('p-notas').value || null,
+      });
+      const aplicado = r.monto_aplicado ?? monto;
+      showToast(`✅ Pago de ${formatMoney(aplicado)} registrado`);
+      closeModal('modal-pago');
+      loadCxp();
+      loadResumen();
+    } catch(err) { showToast(err.message, 'error'); }
+  });
+
+  async function verHistorial(id) {
+    try {
+      const pagos = await api.cxp.historial(id);
+      const div = document.getElementById('historial-content');
+      if (!pagos.length) {
+        div.innerHTML = `<p style="text-align:center;color:var(--color-text-muted);padding:1.5rem">Sin pagos registrados</p>`;
+      } else {
+        div.innerHTML = `
+          <table style="width:100%;font-size:13px;border-collapse:collapse">
+            <thead>
+              <tr style="border-bottom:1px solid var(--color-border)">
+                <th style="text-align:left;padding:8px 12px">Fecha</th>
+                <th style="text-align:right;padding:8px 12px">Monto</th>
+                <th style="text-align:left;padding:8px 12px">Notas</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${pagos.map(p => `
+                <tr style="border-bottom:1px solid var(--color-border-sm,var(--color-border))">
+                  <td style="padding:8px 12px">${new Date(p.created_at).toLocaleDateString('es-MX')}</td>
+                  <td style="padding:8px 12px;text-align:right;font-weight:600;color:var(--color-success,#15803d)">${formatMoney(p.monto)}</td>
+                  <td style="padding:8px 12px;color:var(--color-text-muted)">${p.notas || '—'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>`;
+      }
+      openModal('modal-historial');
+    } catch(err) { showToast(err.message, 'error'); }
+  }
+
+  async function eliminarCxp(id, tienePagos) {
+    if (tienePagos) {
+      showToast('No se puede eliminar: tiene pagos registrados', 'error');
+      return;
+    }
+    if (!confirm('¿Eliminar esta cuenta por pagar?')) return;
+    try {
+      await api.cxp.remove(id);
+      showToast('CxP eliminada');
+      loadCxp();
+      loadResumen();
+    } catch(err) { showToast(err.message, 'error'); }
+  }
+
+  loadResumen();
+  loadCxp();
+</script>
+</body>
+</html>

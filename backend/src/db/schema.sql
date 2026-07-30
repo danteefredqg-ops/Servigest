@@ -399,3 +399,34 @@ CREATE TABLE IF NOT EXISTS ot_estados (
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_ot_estados_ot ON ot_estados(ot_id);
+
+-- ── CUENTAS POR PAGAR ─────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS cuentas_por_pagar (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  empresa_id        UUID NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+  proveedor         VARCHAR(255) NOT NULL,
+  descripcion       TEXT,
+  compra_id         UUID REFERENCES compras(id) ON DELETE SET NULL,
+  monto_total       NUMERIC(12,2) NOT NULL,
+  monto_pagado      NUMERIC(12,2) NOT NULL DEFAULT 0,
+  fecha_vencimiento DATE,
+  notas             TEXT,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS pagos_cxp (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  cxp_id     UUID NOT NULL REFERENCES cuentas_por_pagar(id) ON DELETE CASCADE,
+  empresa_id UUID NOT NULL,
+  monto      NUMERIC(12,2) NOT NULL,
+  notas      TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cxp_empresa   ON cuentas_por_pagar(empresa_id);
+CREATE INDEX IF NOT EXISTS idx_pagos_cxp_cxp ON pagos_cxp(cxp_id);
+
+-- Activar módulo cxp para empresas existentes
+INSERT INTO modulos_config (empresa_id, modulo, activo)
+SELECT id, 'cxp', true FROM empresas
+ON CONFLICT (empresa_id, modulo) DO NOTHING;
