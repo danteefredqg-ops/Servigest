@@ -2,30 +2,30 @@
 
 /* ── Variables ─────────────────────────────────────────────────────────────── */
 :root {
-  --color-accent:       #1D9E75;
-  --color-accent-light: #E1F5EE;
-  --color-accent-dark:  #0F6E56;
+  --color-accent:       #2563EB;
+  --color-accent-light: #EFF6FF;
+  --color-accent-dark:  #1D4ED8;
 
-  --color-bg:           #ffffff;
-  --color-card:         #ffffff;
-  --color-bg-secondary: #F5F4F1;
-  --color-bg-tertiary:  #ECEAE4;
+  --color-bg:           #FBF7F0;
+  --color-card:         #FBF7F0;
+  --color-bg-secondary: #F3EDE1;
+  --color-bg-tertiary:  #E8DFCE;
 
-  --color-text:         #18181B;
-  --color-text-muted:   #6b7280;
-  --color-text-hint:    #9ca3af;
+  --color-text:         #1E3060;
+  --color-text-muted:   #4A6FA5;
+  --color-text-hint:    #8A9DC0;
 
-  --color-border:       rgba(0,0,0,0.09);
-  --color-border-md:    rgba(0,0,0,0.16);
+  --color-border:       rgba(30,48,96,0.10);
+  --color-border-md:    rgba(30,48,96,0.18);
 
-  /* Sidebar crema */
-  --sidebar-bg:           #F7F5F0;
-  --sidebar-text:         #6B7280;
-  --sidebar-text-hover:   #1E40AF;
-  --sidebar-text-active:  #065F46;
-  --sidebar-active-bg:    #E8F7F2;
-  --sidebar-hover-bg:     #EBF4FF;
-  --sidebar-border:       #E3DDD5;
+  /* Sidebar crema + azul */
+  --sidebar-bg:           #EEE6D5;
+  --sidebar-text:         #6B7A90;
+  --sidebar-text-hover:   #1D4ED8;
+  --sidebar-text-active:  #1D4ED8;
+  --sidebar-active-bg:    #DBEAFE;
+  --sidebar-hover-bg:     #E8EFFD;
+  --sidebar-border:       #D9CFC0;
 
   /* Estados de pedido */
   --estado-pendiente-bg:   #FEF3C7;
@@ -48,9 +48,9 @@
 
 /* ── Modo oscuro ─────────────────────────────────────────────────────────────── */
 [data-theme="dark"] {
-  --color-accent:       #22B585;
-  --color-accent-light: #0D3D2B;
-  --color-accent-dark:  #1D9E75;
+  --color-accent:       #3B82F6;
+  --color-accent-light: #1E3A5F;
+  --color-accent-dark:  #2563EB;
 
   --color-bg:           #1C1C1E;
   --color-card:         #1C1C1E;
@@ -67,9 +67,9 @@
   --sidebar-bg:           #111113;
   --sidebar-text:         #9CA3AF;
   --sidebar-text-hover:   #60A5FA;
-  --sidebar-text-active:  #34D399;
-  --sidebar-active-bg:    #0D2E22;
-  --sidebar-hover-bg:     #1E2A3A;
+  --sidebar-text-active:  #60A5FA;
+  --sidebar-active-bg:    #1A2F4A;
+  --sidebar-hover-bg:     #1A2A3E;
   --sidebar-border:       #2C2C2E;
 
   --estado-pendiente-bg:   #422006;
