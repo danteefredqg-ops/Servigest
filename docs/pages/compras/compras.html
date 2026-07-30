@@ -119,13 +119,19 @@
         return;
       }
       tbody.innerHTML = lista.map(c => {
+        const msgEliminar = c.estado === 'recibida'
+          ? `⚠️ Esta compra ya fue recibida. Eliminarla REVERTIRÁ el stock de los productos. ¿Continuar?`
+          : `¿Eliminar esta orden de compra?`;
         const acciones = [
           c.estado === 'pendiente' ? `<button class="btn btn-secondary btn-sm" onclick="cambiarEstado('${c.id}','recibida')">✓ Recibida</button>` : '',
           c.estado === 'pendiente' ? `<button class="btn btn-ghost btn-sm" onclick="cambiarEstado('${c.id}','cancelada')">Cancelar</button>` : '',
-          c.estado !== 'recibida'  ? `<button class="btn btn-ghost btn-sm" style="color:#A32D2D" onclick="eliminarCompra('${c.id}')">🗑 Eliminar</button>` : '',
+          `<button class="btn btn-ghost btn-sm" style="color:#A32D2D" onclick="eliminarCompra('${c.id}',${JSON.stringify(msgEliminar)})">🗑 Eliminar</button>`,
         ].join('');
         const pdfBtn = c.archivo_nombre
-          ? `<button class="btn btn-secondary btn-sm" onclick="verPDF('${c.id}')" title="${c.archivo_nombre}">📄 Ver</button>`
+          ? `<div class="flex gap-8">
+               <button class="btn btn-secondary btn-sm" onclick="verPDF('${c.id}')" title="${c.archivo_nombre}">📄 Ver</button>
+               <button class="btn btn-ghost btn-sm" style="color:#A32D2D" onclick="quitarPDF('${c.id}')" title="Quitar PDF">✕</button>
+             </div>`
           : `<label class="btn btn-ghost btn-sm" style="cursor:pointer" title="Adjuntar PDF del proveedor">
                📎 Adjuntar
                <input type="file" accept="application/pdf" style="display:none" onchange="subirPDF('${c.id}',this)"/>
@@ -239,6 +245,15 @@
     reader.readAsDataURL(file);
   }
 
+  async function quitarPDF(id) {
+    if (!confirm('¿Quitar el PDF adjunto?')) return;
+    try {
+      await api.post(`/compras/${id}/pdf`, { archivo_base64: null, nombre: null });
+      showToast('PDF eliminado');
+      loadCompras();
+    } catch(err) { showToast(err.message, 'error'); }
+  }
+
   async function verPDF(id) {
     try {
       const data = await api.get(`/compras/${id}/pdf`);
@@ -247,8 +262,8 @@
     } catch(err) { showToast(err.message, 'error'); }
   }
 
-  async function eliminarCompra(id) {
-    if (!confirm('¿Eliminar esta orden de compra?')) return;
+  async function eliminarCompra(id, msg) {
+    if (!confirm(msg || '¿Eliminar esta orden de compra?')) return;
     try {
       await api.delete(`/compras/${id}`);
       showToast('Orden eliminada');

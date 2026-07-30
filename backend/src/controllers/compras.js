@@ -56,7 +56,33 @@ async function updateEstado(req, res, next) {
 
     if (estado === 'recibida') {
       for (const item of result.rows[0].items) {
-        if (item.producto_id) {
+        if (!item.producto_id) continue;
+        const precioCompra = Number(item.precio_unit);
+        if (precioCompra > 0) {
+          // Promedio ponderado: (stock_actual × costo_actual + cant × precio) / nuevo_stock
+          const prodRes = await client.query(
+            'SELECT stock, costo_promedio FROM productos WHERE id = $1 AND empresa_id = $2 FOR UPDATE',
+            [item.producto_id, req.user.empresa_id]
+          );
+          if (prodRes.rows[0]) {
+            const stockActual  = Number(prodRes.rows[0].stock) || 0;
+            const costoActual  = Number(prodRes.rows[0].costo_promedio) || 0;
+            const cantRecibida = Number(item.cantidad);
+            const nuevoStock   = stockActual + cantRecibida;
+            const nuevoCosto   = nuevoStock > 0
+              ? (stockActual * costoActual + cantRecibida * precioCompra) / nuevoStock
+              : precioCompra;
+            await client.query(
+              'UPDATE productos SET stock = stock + $1, costo_promedio = $2 WHERE id = $3 AND empresa_id = $4',
+              [cantRecibida, Number(nuevoCosto.toFixed(4)), item.producto_id, req.user.empresa_id]
+            );
+          } else {
+            await client.query(
+              'UPDATE productos SET stock = stock + $1 WHERE id = $2 AND empresa_id = $3',
+              [item.cantidad, item.producto_id, req.user.empresa_id]
+            );
+          }
+        } else {
           await client.query(
             'UPDATE productos SET stock = stock + $1 WHERE id = $2 AND empresa_id = $3',
             [item.cantidad, item.producto_id, req.user.empresa_id]
@@ -76,30 +102,50 @@ async function updateEstado(req, res, next) {
 }
 
 async function remove(req, res, next) {
+  const client = await db.connect();
   try {
-    const result = await db.query(
-      `DELETE FROM compras WHERE id = $1 AND empresa_id = $2 AND estado != 'recibida' RETURNING id`,
+    await client.query('BEGIN');
+
+    const compra = await client.query(
+      'SELECT * FROM compras WHERE id = $1 AND empresa_id = $2',
       [req.params.id, req.user.empresa_id]
     );
-    if (!result.rows[0]) {
-      const existe = await db.query(
-        'SELECT estado FROM compras WHERE id = $1 AND empresa_id = $2',
-        [req.params.id, req.user.empresa_id]
-      );
-      if (!existe.rows[0]) return res.status(404).json({ error: 'Compra no encontrada' });
-      return res.status(400).json({ error: 'No se puede eliminar una compra ya recibida (ya afectó el stock)' });
+    if (!compra.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Compra no encontrada' });
     }
+
+    // Si estaba recibida, revertir el stock
+    if (compra.rows[0].estado === 'recibida') {
+      for (const item of compra.rows[0].items) {
+        if (item.producto_id) {
+          await client.query(
+            'UPDATE productos SET stock = GREATEST(stock - $1, 0) WHERE id = $2 AND empresa_id = $3',
+            [item.cantidad, item.producto_id, req.user.empresa_id]
+          );
+        }
+      }
+    }
+
+    await client.query('DELETE FROM compras WHERE id = $1', [req.params.id]);
+    await client.query('COMMIT');
     res.json({ ok: true });
-  } catch(err) { next(err); }
+  } catch(err) {
+    await client.query('ROLLBACK').catch(() => {});
+    next(err);
+  } finally {
+    client.release();
+  }
 }
 
 async function adjuntarPDF(req, res, next) {
   try {
     const { archivo_base64, nombre } = req.body;
-    if (!archivo_base64) return res.status(400).json({ error: 'archivo_base64 es requerido' });
+    // archivo_base64: null = quitar PDF; string = guardar PDF
 
-    const MAX = 7 * 1024 * 1024; // ~5 MB PDF → ~7 MB base64
-    if (archivo_base64.length > MAX) return res.status(400).json({ error: 'El PDF no debe superar 5 MB' });
+    if (archivo_base64 && archivo_base64.length > 7 * 1024 * 1024) {
+      return res.status(400).json({ error: 'El PDF no debe superar 5 MB' });
+    }
 
     const result = await db.query(
       `UPDATE compras SET archivo_pdf = $1, archivo_nombre = $2

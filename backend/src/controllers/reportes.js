@@ -125,4 +125,120 @@ async function dashboardCompleto(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { ingresos, clientesTop, cxcVencidas, dashboardCompleto };
+// GET /api/reportes/contpaq?desde=&hasta=
+async function exportContpaq(req, res, next) {
+  try {
+    const eid = req.user.empresa_id;
+    const hoy = new Date();
+    const dDesde = req.query.desde || new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0,10);
+    const dHasta = req.query.hasta || hoy.toISOString().slice(0,10);
+    const fmt    = d => d ? new Date(d).toLocaleDateString('es-MX') : '';
+
+    const [ventas, compras, cxc, cxp, inventario] = await Promise.all([
+      db.query(`
+        SELECT p.numero, p.created_at, c.nombre AS cliente, c.rfc,
+               p.subtotal, (p.total - p.subtotal) AS iva, p.total, p.forma_pago
+        FROM pedidos p JOIN clientes c ON c.id = p.cliente_id
+        WHERE p.empresa_id = $1 AND p.estado = 'entregado'
+          AND p.created_at::date BETWEEN $2 AND $3
+        ORDER BY p.created_at`, [eid, dDesde, dHasta]),
+
+      db.query(`
+        SELECT proveedor, descripcion, total, estado, fecha_entrega, created_at
+        FROM compras WHERE empresa_id = $1
+          AND created_at::date BETWEEN $2 AND $3
+        ORDER BY created_at`, [eid, dDesde, dHasta]),
+
+      db.query(`
+        SELECT c.nombre AS cliente, cxc.monto, cxc.monto_pagado,
+               cxc.monto - cxc.monto_pagado AS saldo, cxc.estado, cxc.fecha_vence, cxc.notas
+        FROM cuentas_por_cobrar cxc JOIN clientes c ON c.id = cxc.cliente_id
+        WHERE cxc.empresa_id = $1
+          AND cxc.created_at::date BETWEEN $2 AND $3
+        ORDER BY cxc.fecha_vence`, [eid, dDesde, dHasta]),
+
+      db.query(`
+        SELECT proveedor, descripcion, monto_total, monto_pagado,
+               monto_total - monto_pagado AS saldo, fecha_vencimiento, notas, created_at
+        FROM cuentas_por_pagar WHERE empresa_id = $1
+          AND created_at::date BETWEEN $2 AND $3
+        ORDER BY fecha_vencimiento NULLS LAST`, [eid, dDesde, dHasta]),
+
+      db.query(`
+        SELECT nombre, sku, precio, costo, costo_promedio, stock, unidad, proveedor
+        FROM productos WHERE empresa_id = $1 AND activo = true
+        ORDER BY nombre`, [eid]),
+    ]);
+
+    const wb = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ventas.rows.map(r => ({
+      'Fecha':       fmt(r.created_at),
+      'N° Pedido':   r.numero,
+      'Cliente':     r.cliente,
+      'RFC':         r.rfc || '',
+      'Subtotal':    Number(r.subtotal),
+      'IVA 16%':     Number(r.iva),
+      'Total':       Number(r.total),
+      'Forma Pago':  r.forma_pago || '',
+      'Cta. Cargo (sugerida)':  '105-01 Clientes',
+      'Cta. Abono (sugerida)':  '401-01 Ventas',
+    }))), 'Ventas');
+
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(compras.rows.map(r => ({
+      'Fecha':       fmt(r.created_at),
+      'Proveedor':   r.proveedor,
+      'Descripción': r.descripcion || '',
+      'Total':       Number(r.total),
+      'Estado':      r.estado,
+      'F. Entrega':  fmt(r.fecha_entrega),
+      'Cta. Cargo (sugerida)':  '105-00 Inventario / 501-01 Costo',
+      'Cta. Abono (sugerida)':  '201-01 Proveedores',
+    }))), 'Compras');
+
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cxc.rows.map(r => ({
+      'Cliente':  r.cliente,
+      'Monto':    Number(r.monto),
+      'Pagado':   Number(r.monto_pagado),
+      'Saldo':    Number(r.saldo),
+      'Estado':   r.estado,
+      'Vence':    fmt(r.fecha_vence),
+      'Notas':    r.notas || '',
+      'Cta. SAT': '105-01 Clientes',
+    }))), 'CxC – Por Cobrar');
+
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cxp.rows.map(r => ({
+      'Proveedor':   r.proveedor,
+      'Descripción': r.descripcion || '',
+      'Total':       Number(r.monto_total),
+      'Pagado':      Number(r.monto_pagado),
+      'Saldo':       Number(r.saldo),
+      'Vence':       fmt(r.fecha_vencimiento),
+      'Notas':       r.notas || '',
+      'Cta. SAT':    '201-01 Proveedores',
+    }))), 'CxP – Por Pagar');
+
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(inventario.rows.map(r => ({
+      'Nombre':          r.nombre,
+      'SKU':             r.sku || '',
+      'Unidad':          r.unidad,
+      'Precio Venta':    Number(r.precio),
+      'Costo Manual':    Number(r.costo   || 0),
+      'Costo Prom. PP':  Number(r.costo_promedio || 0),
+      'Stock':           r.stock,
+      'Valor Inventario': Number((r.costo_promedio || r.costo || 0) * r.stock),
+      'Proveedor':       r.proveedor || '',
+      'Cta. SAT':        '105-00 Inventario',
+    }))), 'Inventario Valorizado');
+
+    const buf = XLSX.write(wb, { type:'buffer', bookType:'xlsx' });
+    const periodo = `${dDesde.replace(/-/g,'')}_${dHasta.replace(/-/g,'')}`;
+    res.set({
+      'Content-Type':        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="contpaq_${periodo}.xlsx"`,
+    });
+    res.send(buf);
+  } catch(err) { next(err); }
+}
+
+module.exports = { ingresos, clientesTop, cxcVencidas, dashboardCompleto, exportContpaq };

@@ -40,11 +40,19 @@ async function create(req, res, next) {
   } catch (err) { next(err); }
 }
 
+const FORMA_PAGO_SAT = {
+  efectivo:      '01',
+  cheque:        '02',
+  transferencia: '03',
+  tarjeta:       '28',
+  por_definir:   '99',
+};
+
 // Registrar pago parcial o total
 async function registrarPago(req, res, next) {
   const client = await db.connect();
   try {
-    const { monto, metodo, referencia, fecha, notas } = req.body;
+    const { monto, metodo, referencia, fecha, notas, emitir_complemento } = req.body;
     if (!monto || Number(monto) <= 0) {
       return res.status(400).json({ error: 'monto es requerido y debe ser mayor a cero' });
     }
@@ -53,19 +61,62 @@ async function registrarPago(req, res, next) {
 
     // FOR UPDATE bloquea la fila para evitar race conditions en pagos concurrentes
     const cxcRes = await client.query(
-      'SELECT * FROM cuentas_por_cobrar WHERE id = $1 AND empresa_id = $2 FOR UPDATE',
+      `SELECT cxc.*, f.facturapi_id, f.uuid_sat,
+              c.nombre AS cli_nombre, c.rfc AS cli_rfc,
+              c.regimen_fiscal AS cli_regimen, c.cp AS cli_cp,
+              e.cp AS emp_cp
+       FROM cuentas_por_cobrar cxc
+       LEFT JOIN facturas f   ON f.id = cxc.factura_id AND f.estado = 'timbrado'
+       LEFT JOIN clientes c   ON c.id = cxc.cliente_id
+       LEFT JOIN empresas e   ON e.id = cxc.empresa_id
+       WHERE cxc.id = $1 AND cxc.empresa_id = $2 FOR UPDATE OF cxc`,
       [req.params.id, req.user.empresa_id]
     );
     const cxc = cxcRes.rows[0];
-    if (!cxc) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'CxC no encontrada' });
+    if (!cxc) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'CxC no encontrada' }); }
+
+    // Emitir complemento de pago SAT si se solicitó y hay factura timbrada
+    let complementoUuid  = null;
+    let complementoFpId  = null;
+    let complementoError = null;
+    if (emitir_complemento && cxc.uuid_sat) {
+      try {
+        const { getFacturapiClient } = require('./facturas');
+        const fpClient = await getFacturapiClient(req.user.empresa_id);
+        const saldoPrevio = Number(cxc.monto) - Number(cxc.monto_pagado);
+        const comp = await fpClient.invoices.create({
+          type: 'P',
+          customer: {
+            legal_name: cxc.cli_nombre,
+            tax_id:     cxc.cli_rfc,
+            tax_system: cxc.cli_regimen || '626',
+            address:    { zip: cxc.cli_cp || cxc.emp_cp },
+          },
+          payments: [{
+            form:     FORMA_PAGO_SAT[metodo] || '99',
+            date:     fecha ? new Date(fecha) : new Date(),
+            currency: 'MXN',
+            related_documents: [{
+              uuid:         cxc.uuid_sat,
+              amount:       Number(monto),
+              installment:  1,
+              last_balance: saldoPrevio,
+            }],
+          }],
+        });
+        complementoUuid = comp.uuid;
+        complementoFpId = comp.id;
+      } catch (compErr) {
+        console.error('[CXC] Error emitiendo complemento:', compErr.message);
+        complementoError = compErr.response?.data?.message || compErr.message;
+      }
     }
 
     await client.query(
-      `INSERT INTO pagos_cxc (cxc_id, monto, metodo, referencia, fecha, notas)
-       VALUES ($1,$2,$3,$4,$5,$6)`,
-      [cxc.id, monto, metodo || 'efectivo', referencia, fecha || new Date(), notas]
+      `INSERT INTO pagos_cxc (cxc_id, monto, metodo, referencia, fecha, notas, complemento_uuid, complemento_facturapi_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [cxc.id, monto, metodo || 'efectivo', referencia, fecha || new Date(), notas,
+       complementoUuid, complementoFpId]
     );
 
     const nuevoPagado = Number(cxc.monto_pagado) + Number(monto);
@@ -77,7 +128,13 @@ async function registrarPago(req, res, next) {
     );
 
     await client.query('COMMIT');
-    res.json({ message: 'Pago registrado', estado: nuevoEstado, monto_pagado: nuevoPagado });
+    res.json({
+      message:           'Pago registrado',
+      estado:            nuevoEstado,
+      monto_pagado:      nuevoPagado,
+      complemento_uuid:  complementoUuid   || undefined,
+      complemento_error: complementoError  || undefined,
+    });
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     next(err);

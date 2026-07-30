@@ -114,17 +114,19 @@ async function getHistorial(req, res, next) {
 
 async function remove(req, res, next) {
   try {
+    const cxp = await db.query(
+      'SELECT id FROM cuentas_por_pagar WHERE id = $1 AND empresa_id = $2',
+      [req.params.id, req.user.empresa_id]
+    );
+    if (!cxp.rows[0]) return res.status(404).json({ error: 'CxP no encontrada' });
+
     const pagos = await db.query(
       'SELECT COUNT(*) FROM pagos_cxp WHERE cxp_id = $1', [req.params.id]
     );
     if (Number(pagos.rows[0].count) > 0) {
       return res.status(400).json({ error: 'No se puede eliminar una CxP con pagos registrados' });
     }
-    const result = await db.query(
-      'DELETE FROM cuentas_por_pagar WHERE id = $1 AND empresa_id = $2 RETURNING id',
-      [req.params.id, req.user.empresa_id]
-    );
-    if (!result.rows[0]) return res.status(404).json({ error: 'CxP no encontrada' });
+    await db.query('DELETE FROM cuentas_por_pagar WHERE id = $1', [req.params.id]);
     res.json({ ok: true });
   } catch (err) { next(err); }
 }

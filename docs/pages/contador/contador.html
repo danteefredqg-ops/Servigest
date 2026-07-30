@@ -319,6 +319,25 @@
           <button class="btn btn-primary" onclick="exportarFacturas()">↓ Descargar Excel</button>
         </div>
 
+        <div class="card" style="border:2px solid var(--color-accent)">
+          <div style="font-size:14px;font-weight:600;margin-bottom:.75rem;color:var(--color-accent)">🏦 Exportar para CONTPAQi</div>
+          <p style="font-size:13px;color:var(--color-text-muted);margin-bottom:1rem">
+            Genera un Excel con 5 hojas: Ventas, Compras, CxC, CxP e Inventario Valorizado.
+            Incluye cuentas SAT sugeridas (105, 201, 401, 501) para mapear en CONTPAQi.
+          </p>
+          <div class="flex gap-8" style="flex-wrap:wrap;margin-bottom:.75rem">
+            <div class="form-group" style="flex:1;min-width:120px">
+              <label class="form-label">Desde</label>
+              <input class="form-input" type="date" id="cp-desde" />
+            </div>
+            <div class="form-group" style="flex:1;min-width:120px">
+              <label class="form-label">Hasta</label>
+              <input class="form-input" type="date" id="cp-hasta" />
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="exportarContpaq()">↓ Descargar para CONTPAQi</button>
+        </div>
+
       </div>
     </div><!-- /panel-reportes -->
 
@@ -648,6 +667,17 @@ async function exportarFacturas() {
 async function descargarExcelFacturas() { exportarFacturas(); }
 async function descargarExcelCxC()      { exportarCxCVencidas(); }
 
+async function exportarContpaq() {
+  try {
+    showToast('Generando exportación CONTPAQi...');
+    await api.reportes.exportContpaq({
+      desde: document.getElementById('cp-desde').value || undefined,
+      hasta: document.getElementById('cp-hasta').value || undefined,
+    });
+    showToast('✅ Archivo listo para importar en CONTPAQi');
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
 // Descarga CSV simple (compatible con Excel)
 function descargarCSV(filas, nombre) {
   const bom = '\uFEFF'; // BOM para que Excel abra UTF-8 correctamente
@@ -662,12 +692,14 @@ function descargarCSV(filas, nombre) {
 }
 
 // ── Inicio ────────────────────────────────────────────────────────────────────
-// Inicializar fecha de rango por defecto en reportes
 (function() {
   const hasta = new Date();
   const desde = new Date(); desde.setDate(desde.getDate() - 30);
+  const primeroDeMes = new Date(hasta.getFullYear(), hasta.getMonth(), 1);
   document.getElementById('rep-desde').value = desde.toISOString().slice(0,10);
   document.getElementById('rep-hasta').value = hasta.toISOString().slice(0,10);
+  document.getElementById('cp-desde').value  = primeroDeMes.toISOString().slice(0,10);
+  document.getElementById('cp-hasta').value  = hasta.toISOString().slice(0,10);
 })();
 
 loadResumen();

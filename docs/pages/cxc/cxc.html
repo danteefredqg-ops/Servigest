@@ -156,6 +156,16 @@
         <label class="form-label">Referencia</label>
         <input class="form-input" id="pago-ref" placeholder="Folio, número de operación..." />
       </div>
+      <!-- Solo visible si la CxC tiene factura timbrada vinculada -->
+      <div id="complemento-wrap" style="display:none;background:var(--color-accent-light);border:1px solid rgba(29,158,117,.2);border-radius:8px;padding:10px 14px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;font-weight:500">
+          <input type="checkbox" id="pago-complemento" />
+          Emitir Complemento de Pago SAT (CFDI 4.0)
+        </label>
+        <div style="font-size:11px;color:var(--color-text-muted);margin-top:4px;margin-left:22px">
+          Requiere Facturapi configurado. El timbre tiene costo en tu plan.
+        </div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-pago')">Cancelar</button>
@@ -217,7 +227,7 @@
           </td>
           <td>${estadoBadge(c.estado)}</td>
           <td>
-            ${c.estado !== 'pagada' ? `<button class="btn btn-primary btn-sm" onclick="abrirPago('${c.id}','${c.cliente_nombre}',${saldo})">Registrar pago</button>` : '<span style="color:var(--color-accent);font-size:12px">✓ Liquidada</span>'}
+            ${c.estado !== 'pagada' ? `<button class="btn btn-primary btn-sm" onclick="abrirPago('${c.id}','${c.cliente_nombre}',${saldo},'${c.factura_id||''}')">Registrar pago</button>` : '<span style="color:var(--color-accent);font-size:12px">✓ Liquidada</span>'}
           </td>
         </tr>`;
       }).join('');
@@ -263,11 +273,13 @@
   });
 
   // Registrar pago
-  function abrirPago(id, cliente, saldo) {
+  function abrirPago(id, cliente, saldo, facturaId) {
     document.getElementById('pago-cxc-id').value = id;
     document.getElementById('pago-monto').value  = saldo.toFixed(2);
     document.getElementById('pago-fecha').value  = new Date().toISOString().slice(0,10);
     document.getElementById('pago-ref').value    = '';
+    document.getElementById('pago-complemento').checked = false;
+    document.getElementById('complemento-wrap').style.display = facturaId ? '' : 'none';
     document.getElementById('pago-info').innerHTML = `
       <strong>${cliente}</strong> — Saldo pendiente: <strong>${formatMoney(saldo)}</strong>`;
     openModal('modal-pago');
@@ -276,15 +288,18 @@
   document.getElementById('btn-confirmar-pago').addEventListener('click', async () => {
     const id   = document.getElementById('pago-cxc-id').value;
     const body = {
-      monto:     parseFloat(document.getElementById('pago-monto').value),
-      metodo:    document.getElementById('pago-metodo').value,
-      referencia:document.getElementById('pago-ref').value,
-      fecha:     document.getElementById('pago-fecha').value,
+      monto:              parseFloat(document.getElementById('pago-monto').value),
+      metodo:             document.getElementById('pago-metodo').value,
+      referencia:         document.getElementById('pago-ref').value,
+      fecha:              document.getElementById('pago-fecha').value,
+      emitir_complemento: document.getElementById('pago-complemento').checked,
     };
     if (!body.monto) return showToast('El monto es requerido', 'error');
     try {
       const r = await api.cxc.pago(id, body);
-      showToast(r.estado === 'pagada' ? '✅ Cuenta liquidada completamente' : '✅ Pago registrado');
+      const msg = r.estado === 'pagada' ? '✅ Cuenta liquidada completamente' : '✅ Pago registrado';
+      if (r.complemento_error) showToast(`⚠️ Pago registrado pero el complemento SAT falló: ${r.complemento_error}`, 'error');
+      else showToast(r.complemento_uuid ? `${msg} — Complemento SAT emitido` : msg);
       closeModal('modal-pago');
       loadResumen();
       loadCxC();

@@ -430,3 +430,8 @@ CREATE INDEX IF NOT EXISTS idx_pagos_cxp_cxp ON pagos_cxp(cxp_id);
 INSERT INTO modulos_config (empresa_id, modulo, activo)
 SELECT id, 'cxp', true FROM empresas
 ON CONFLICT (empresa_id, modulo) DO NOTHING;
+
+-- ── INVENTARIO CON COSTO + COMPLEMENTO DE PAGO ───────────────────────────────
+ALTER TABLE productos  ADD COLUMN IF NOT EXISTS costo_promedio      NUMERIC(12,2) DEFAULT 0;
+ALTER TABLE pagos_cxc  ADD COLUMN IF NOT EXISTS complemento_uuid    TEXT;
+ALTER TABLE pagos_cxc  ADD COLUMN IF NOT EXISTS complemento_facturapi_id TEXT;

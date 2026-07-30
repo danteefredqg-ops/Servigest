@@ -224,6 +224,10 @@ const api = {
       const blob = await api.get('/reportes/ingresos' + buildQuery({...f, formato:'xlsx'}));
       if (blob) descargarBlob(blob, 'reporte_ingresos.xlsx');
     },
+    exportContpaq: async (f={}) => {
+      const blob = await api.get('/reportes/contpaq' + buildQuery(f));
+      if (blob) descargarBlob(blob, `contpaq_export.xlsx`);
+    },
   },
 
   // ── Importación ───────────────────────────────────────────────────────────

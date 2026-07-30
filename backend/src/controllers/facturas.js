@@ -163,4 +163,4 @@ async function cancelar(req, res, next) {
   }
 }
 
-module.exports = { getAll, getById, create, timbrar, cancelar };
+module.exports = { getAll, getById, create, timbrar, cancelar, getFacturapiClient };
