@@ -119,13 +119,10 @@
         return;
       }
       tbody.innerHTML = lista.map(c => {
-        const msgEliminar = c.estado === 'recibida'
-          ? `⚠️ Esta compra ya fue recibida. Eliminarla REVERTIRÁ el stock de los productos. ¿Continuar?`
-          : `¿Eliminar esta orden de compra?`;
         const acciones = [
           c.estado === 'pendiente' ? `<button class="btn btn-secondary btn-sm" onclick="cambiarEstado('${c.id}','recibida')">✓ Recibida</button>` : '',
           c.estado === 'pendiente' ? `<button class="btn btn-ghost btn-sm" onclick="cambiarEstado('${c.id}','cancelada')">Cancelar</button>` : '',
-          `<button class="btn btn-ghost btn-sm" style="color:#A32D2D" onclick="eliminarCompra('${c.id}',${JSON.stringify(msgEliminar)})">🗑 Eliminar</button>`,
+          `<button class="btn btn-ghost btn-sm" style="color:#A32D2D" onclick="eliminarCompra('${c.id}','${c.estado}')">🗑 Eliminar</button>`,
         ].join('');
         const pdfBtn = c.archivo_nombre
           ? `<div class="flex gap-8">
@@ -262,8 +259,11 @@
     } catch(err) { showToast(err.message, 'error'); }
   }
 
-  async function eliminarCompra(id, msg) {
-    if (!confirm(msg || '¿Eliminar esta orden de compra?')) return;
+  async function eliminarCompra(id, estado) {
+    const msg = estado === 'recibida'
+      ? '⚠️ Esta compra ya fue recibida. Eliminarla REVERTIRÁ el stock de los productos. ¿Continuar?'
+      : '¿Eliminar esta orden de compra?';
+    if (!confirm(msg)) return;
     try {
       await api.delete(`/compras/${id}`);
       showToast('Orden eliminada');

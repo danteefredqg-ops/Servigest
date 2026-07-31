@@ -60,9 +60,35 @@
     .btn-limpiar:hover { background:var(--color-bg-secondary); }
 
     /* ── Modal cobro ──────────────────────────────────────────────────────── */
-    .cobro-metodo { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:.75rem 0; }
-    .metodo-btn { padding:10px; border:2px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-bg-secondary); cursor:pointer; font-family:inherit; font-size:13px; font-weight:500; text-align:center; transition:all .1s; }
-    .metodo-btn.active { border-color:var(--color-accent); background:var(--color-accent-light); color:var(--color-accent-dark); }
+    .metodo-select { position:relative; margin:.75rem 0; user-select:none; }
+    .metodo-bar {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:11px 14px; border:2px solid var(--color-border-md);
+      border-radius:var(--radius-md); background:var(--color-bg-secondary);
+      cursor:pointer; font-size:14px; font-weight:500; color:var(--color-text);
+      transition:border-color .15s, border-radius .1s;
+    }
+    .metodo-bar:hover { border-color:var(--color-accent); }
+    .metodo-bar.open { border-color:var(--color-accent); border-bottom-left-radius:0; border-bottom-right-radius:0; }
+    .metodo-bar svg { transition:transform .15s; flex-shrink:0; }
+    .metodo-bar.open svg { transform:rotate(180deg); }
+    .metodo-dropdown {
+      display:none; position:absolute; top:100%; left:0; right:0; z-index:200;
+      background:var(--color-card); border:2px solid var(--color-accent);
+      border-top:none; border-bottom-left-radius:var(--radius-md);
+      border-bottom-right-radius:var(--radius-md);
+      box-shadow:var(--shadow-md); overflow:hidden;
+    }
+    .metodo-dropdown.open { display:block; }
+    .metodo-opt {
+      display:flex; align-items:center; gap:10px; width:100%;
+      padding:10px 14px; border:none; background:transparent;
+      cursor:pointer; font-family:inherit; font-size:13px; font-weight:500;
+      color:var(--color-text); text-align:left; transition:background .1s;
+    }
+    .metodo-opt + .metodo-opt { border-top:1px solid var(--color-border); }
+    .metodo-opt:hover  { background:var(--color-bg-secondary); }
+    .metodo-opt.active { background:var(--color-accent-light); color:var(--color-accent-dark); }
 
     /* ── Ticket imprimible ────────────────────────────────────────────────── */
     @media print {
@@ -147,15 +173,21 @@
 
     <div>
       <div style="font-size:12px;font-weight:500;color:var(--color-text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">Forma de pago</div>
-      <div class="cobro-metodo" style="grid-template-columns:repeat(4,1fr)">
-        <button class="metodo-btn active" data-metodo="efectivo">💵 Efectivo</button>
-        <button class="metodo-btn" data-metodo="transferencia">📱 SPEI</button>
-        <button class="metodo-btn" data-metodo="tarjeta_debito">💳 Débito</button>
-        <button class="metodo-btn" data-metodo="tarjeta_credito">💳 Crédito</button>
-        <button class="metodo-btn" data-metodo="cheque">🏦 Cheque</button>
-        <button class="metodo-btn" data-metodo="credito">📋 A crédito</button>
-        <button class="metodo-btn" data-metodo="parcialidades">📆 Parcialidades</button>
-        <button class="metodo-btn" data-metodo="por_definir">⏳ Por definir</button>
+      <div class="metodo-select" id="metodo-select">
+        <div class="metodo-bar" id="metodo-bar">
+          <span id="metodo-label">💵 Efectivo</span>
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="metodo-dropdown" id="metodo-dropdown">
+          <button class="metodo-opt active" data-metodo="efectivo"  data-label="💵 Efectivo">💵 Efectivo</button>
+          <button class="metodo-opt" data-metodo="transferencia"    data-label="📱 SPEI">📱 SPEI</button>
+          <button class="metodo-opt" data-metodo="tarjeta_debito"   data-label="💳 Débito">💳 Débito</button>
+          <button class="metodo-opt" data-metodo="tarjeta_credito"  data-label="💳 Crédito">💳 Crédito</button>
+          <button class="metodo-opt" data-metodo="cheque"           data-label="🏦 Cheque">🏦 Cheque</button>
+          <button class="metodo-opt" data-metodo="credito"          data-label="📋 A crédito">📋 A crédito</button>
+          <button class="metodo-opt" data-metodo="parcialidades"    data-label="📆 Parcialidades">📆 Parcialidades</button>
+          <button class="metodo-opt" data-metodo="por_definir"      data-label="⏳ Por definir">⏳ Por definir</button>
+        </div>
       </div>
     </div>
 
@@ -358,16 +390,40 @@ document.getElementById('btn-cobrar').addEventListener('click', () => {
   document.getElementById('pago-con').value = '';
   document.getElementById('cambio-display').textContent = '';
 
+  // Reset método de pago a efectivo
+  metodoActivo = 'efectivo';
+  document.getElementById('metodo-label').textContent = '💵 Efectivo';
+  document.querySelectorAll('.metodo-opt').forEach(o => o.classList.toggle('active', o.dataset.metodo === 'efectivo'));
+  document.getElementById('efectivo-wrap').style.display = 'block';
+
   openModal('modal-cobro');
   setTimeout(() => document.getElementById('pago-con').focus(), 100);
 });
 
-// Métodos de pago
-document.querySelectorAll('.metodo-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.metodo-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    metodoActivo = btn.dataset.metodo;
+// Dropdown de métodos de pago
+const metodoBar      = document.getElementById('metodo-bar');
+const metodoDropdown = document.getElementById('metodo-dropdown');
+
+metodoBar.addEventListener('click', () => {
+  const open = metodoDropdown.classList.toggle('open');
+  metodoBar.classList.toggle('open', open);
+});
+
+document.addEventListener('click', e => {
+  if (!document.getElementById('metodo-select').contains(e.target)) {
+    metodoDropdown.classList.remove('open');
+    metodoBar.classList.remove('open');
+  }
+});
+
+metodoDropdown.querySelectorAll('.metodo-opt').forEach(opt => {
+  opt.addEventListener('click', () => {
+    metodoDropdown.querySelectorAll('.metodo-opt').forEach(o => o.classList.remove('active'));
+    opt.classList.add('active');
+    metodoActivo = opt.dataset.metodo;
+    document.getElementById('metodo-label').textContent = opt.dataset.label;
+    metodoDropdown.classList.remove('open');
+    metodoBar.classList.remove('open');
     document.getElementById('efectivo-wrap').style.display =
       metodoActivo === 'efectivo' ? 'block' : 'none';
   });
@@ -416,8 +472,11 @@ document.getElementById('btn-confirmar-cobro').addEventListener('click', async (
       items,
     });
 
+    const sel = document.getElementById('sel-cliente');
+    const clienteNombre = sel.options[sel.selectedIndex]?.text || 'Cliente';
+
     closeModal('modal-cobro');
-    imprimirTicket(pedido, metodoActivo);
+    imprimirTicket(pedido, metodoActivo, clienteNombre);
     showToast(`✅ Venta registrada — ${formatMoney(total)}`);
     carrito = [];
     renderCarrito();
@@ -452,7 +511,7 @@ async function cargarEmpresaData() {
   try { empresaData = await api.get('/auth/me'); } catch(_) {}
 }
 
-function imprimirTicket(pedido, metodo) {
+function imprimirTicket(pedido, metodo, clienteNombre) {
   const user    = api.getUser();
   const emp     = empresaData || {};
   const nombre  = emp.empresa_nombre || user?.empresa_nombre || 'ServiGest';
@@ -536,7 +595,14 @@ function imprimirTicket(pedido, metodo) {
     </div>
   `;
 
-  setTimeout(() => window.print(), 300);
+  const folioStr = String(pedido.numero || pedido.id || '').padStart(4, '0');
+  const titulo   = `${clienteNombre || 'Cliente'} — Folio ${folioStr}`;
+  const titOrig  = document.title;
+  document.title = titulo;
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => { document.title = titOrig; }, 1000);
+  }, 300);
 }
 
 init();
