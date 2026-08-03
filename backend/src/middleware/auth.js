@@ -1,40 +1,74 @@
 const jwt = require('jsonwebtoken');
+const db  = require('../db/connection');
 
 // ── Autenticación base ────────────────────────────────────────────────────────
-function authMiddleware(req, res, next) {
+async function authMiddleware(req, res, next) {
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
 
+  let payload;
   try {
-    const payload = jwt.verify(header.split(' ')[1], process.env.JWT_SECRET);
-    req.user = {
-      id:          payload.id,
-      empresa_id:  payload.empresa_id,
-      rol:         payload.rol || 'admin',
-      plan:        payload.plan,
-      trial_hasta: payload.trial_hasta,
-      nombre:      payload.nombre || null,
-    };
-
-    // Trial expirado: tokens nuevos incluyen plan y trial_hasta
-    if (payload.plan === 'trial' && payload.trial_hasta && new Date(payload.trial_hasta) < new Date()) {
-      return res.status(402).json({
-        error:       'trial_expirado',
-        trial_hasta: payload.trial_hasta,
-        mensaje:     'Tu período de prueba ha terminado. Contacta soporte para continuar.',
-      });
-    }
-
-    next();
+    payload = jwt.verify(header.split(' ')[1], process.env.JWT_SECRET);
   } catch {
     return res.status(401).json({ error: 'Token inválido o expirado' });
   }
+
+  req.user = {
+    id:         payload.id,
+    empresa_id: payload.empresa_id,
+    rol:        payload.rol || 'admin',
+    nombre:     payload.nombre || null,
+    // plan y plan_vence se sobreescriben con datos de DB abajo
+    plan:        payload.plan,
+    trial_hasta: payload.trial_hasta,
+  };
+
+  // Verificar plan desde DB (fuente de verdad — refleja pagos/cancelaciones sin re-login)
+  try {
+    const { rows } = await db.query(
+      `SELECT plan, plan_vence, trial_hasta, stripe_customer_id
+       FROM empresas WHERE id = $1`,
+      [payload.empresa_id]
+    );
+    if (rows[0]) {
+      req.user.plan              = rows[0].plan;
+      req.user.plan_vence        = rows[0].plan_vence;
+      req.user.trial_hasta       = rows[0].trial_hasta;
+      req.user.tiene_suscripcion = !!rows[0].stripe_customer_id;
+    }
+  } catch {
+    // Si falla el DB check usamos datos del JWT como fallback
+  }
+
+  const ahora = new Date();
+
+  // Trial expirado → bloqueo total
+  if (req.user.plan === 'trial' && req.user.trial_hasta && new Date(req.user.trial_hasta) < ahora) {
+    return res.status(402).json({
+      error:       'trial_expirado',
+      trial_hasta: req.user.trial_hasta,
+      mensaje:     'Tu período de prueba ha terminado. Activa un plan para continuar.',
+    });
+  }
+
+  // Plan pagado vencido → modo lectura (GETs pasan, writes bloqueados)
+  if (req.user.plan !== 'trial' && req.user.plan_vence && new Date(req.user.plan_vence) < ahora) {
+    req.user.modo_lectura = true;
+    if (['POST', 'PATCH', 'DELETE'].includes(req.method)) {
+      return res.status(402).json({
+        error:   'plan_vencido',
+        modo:    'lectura',
+        mensaje: 'Tu plan venció. Renueva en Ajustes para continuar.',
+      });
+    }
+  }
+
+  next();
 }
 
 // ── Fábrica de middleware por rol ─────────────────────────────────────────────
-// Uso: router.delete('/:id', auth, roles('admin'), ctrl.remove)
 function roles(...permitidos) {
   return (req, res, next) => {
     if (!permitidos.includes(req.user.rol)) {

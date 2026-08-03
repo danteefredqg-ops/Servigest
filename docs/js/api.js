@@ -43,6 +43,14 @@ const api = {
     }
 
     if (res.status === 402) {
+      let errData = {};
+      try { errData = await res.json(); } catch {}
+      if (errData.modo === 'lectura') {
+        // Plan vencido pero datos intactos — mostrar banner, no redirigir
+        document.dispatchEvent(new CustomEvent('sg:plan-vencido', { detail: errData }));
+        throw new Error(errData.mensaje || 'Tu plan venció. Renueva en Ajustes para continuar.');
+      }
+      // trial_expirado → redirigir
       const path = window.location.pathname;
       const root = path.indexOf('/pages/') >= 0 ? path.substring(0, path.indexOf('/pages/')) : '';
       if (!window.location.pathname.includes('trial-expirado')) {
@@ -289,6 +297,13 @@ const api = {
 
   // ── Backup ────────────────────────────────────────────────────────────────
   backup: () => api.get('/backup'),
+
+  // ── Stripe / Suscripciones ────────────────────────────────────────────────
+  stripe: {
+    status:   ()     => api.get('/stripe/status'),
+    checkout: (plan) => api.post('/stripe/checkout', { plan }),
+    portal:   ()     => api.post('/stripe/portal', {}),
+  },
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

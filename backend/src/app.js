@@ -26,6 +26,7 @@ const garantiasRoutes    = require('./routes/garantias');
 const modulosRoutes      = require('./routes/modulos');
 const backupRoutes       = require('./routes/backup');
 const portalRoutes       = require('./routes/portal');
+const stripeRoutes       = require('./routes/stripe');
 const errorHandler       = require('./middleware/errorHandler');
 
 const app  = express();
@@ -50,6 +51,15 @@ const authLimiter = rateLimit({
   max: 20,
   message: { error: 'Demasiados intentos de autenticación' },
 });
+
+// ── Webhook Stripe — raw body ANTES de express.json() ────────────────────────
+// Stripe verifica la firma con el body sin parsear; si express.json() lo procesa
+// primero la firma falla. Esta ruta debe estar ANTES de app.use(express.json()).
+app.post(
+  '/api/stripe/webhook',
+  express.raw({ type: 'application/json' }),
+  require('./controllers/stripe').handleWebhook
+);
 
 // ── Middleware global ────────────────────────────────────────────────────────
 const allowedOrigins = [
@@ -92,6 +102,7 @@ app.use('/api/garantias',    garantiasRoutes);
 app.use('/api/modulos',     modulosRoutes);
 app.use('/api/backup',      backupRoutes);
 app.use('/api/portal',      portalRoutes);
+app.use('/api/stripe',      stripeRoutes);
 
 // Health check — Railway lo usa para verificar que el servicio vive
 app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date() }));

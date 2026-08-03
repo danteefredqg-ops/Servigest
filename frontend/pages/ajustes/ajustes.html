@@ -178,7 +178,8 @@
 
     <!-- Tab: Planes -->
     <div class="tab-panel" id="tab-planes">
-      <h3 style="font-size:15px;font-weight:500;margin-bottom:1.25rem">Plan actual y opciones</h3>
+      <h3 style="font-size:15px;font-weight:500;margin-bottom:.5rem">Plan actual y opciones</h3>
+      <div id="plan-status-bar" style="margin-bottom:1.25rem;font-size:13px;color:var(--color-text-muted)">Cargando...</div>
       <div style="display:flex;flex-direction:column;gap:12px;max-width:620px">
 
         <div class="plan-card" id="plan-trial">
@@ -187,10 +188,10 @@
             <div class="plan-precio">Gratis por 30 días</div>
             <div class="plan-features">✓ Acceso completo · ✓ Sin tarjeta requerida</div>
           </div>
-          <span class="badge badge-en_camino">Activo</span>
+          <span class="badge badge-en_camino" id="badge-trial" style="display:none">Activo</span>
         </div>
 
-        <div class="plan-card">
+        <div class="plan-card" id="card-basico">
           <div>
             <div class="plan-nombre">Básico</div>
             <div class="plan-precio">$450 MXN / mes</div>
@@ -199,10 +200,10 @@
               ✓ Inventario · ✓ Soporte por email
             </div>
           </div>
-          <a class="btn btn-secondary btn-sm" href="https://wa.me/528111771092?text=Hola%2C%20quiero%20activar%20el%20Plan%20B%C3%A1sico%20de%20ServiGest" target="_blank" rel="noopener">Activar</a>
+          <button class="btn btn-secondary btn-sm" onclick="activarPlan('basico')" id="btn-basico">Activar</button>
         </div>
 
-        <div class="plan-card">
+        <div class="plan-card" id="card-profesional">
           <div>
             <div class="plan-nombre">⭐ Pro</div>
             <div class="plan-precio">$850 MXN / mes</div>
@@ -211,10 +212,10 @@
               ✓ Reportes Excel · ✓ CxC y Compras · ✓ Soporte WhatsApp
             </div>
           </div>
-          <a class="btn btn-primary btn-sm" href="https://wa.me/528111771092?text=Hola%2C%20quiero%20activar%20el%20Plan%20Pro%20de%20ServiGest" target="_blank" rel="noopener">Activar</a>
+          <button class="btn btn-primary btn-sm" onclick="activarPlan('profesional')" id="btn-profesional">Activar</button>
         </div>
 
-        <div class="plan-card">
+        <div class="plan-card" id="card-enterprise">
           <div>
             <div class="plan-nombre">Enterprise</div>
             <div class="plan-precio">$1,450 MXN / mes</div>
@@ -223,11 +224,18 @@
               ✓ Exportación CONTPAQi · ✓ Soporte prioritario
             </div>
           </div>
-          <a class="btn btn-secondary btn-sm" href="https://wa.me/528111771092?text=Hola%2C%20quiero%20activar%20el%20Plan%20Enterprise%20de%20ServiGest" target="_blank" rel="noopener">Activar</a>
+          <button class="btn btn-secondary btn-sm" onclick="activarPlan('enterprise')" id="btn-enterprise">Activar</button>
+        </div>
+
+        <div id="portal-wrap" style="display:none">
+          <button class="btn btn-ghost btn-sm" onclick="abrirPortal()" style="width:100%;margin-top:4px">
+            ⚙ Gestionar suscripción (cambiar tarjeta, cancelar)
+          </button>
         </div>
 
         <p style="font-size:12px;color:var(--color-text-muted);margin-top:.5rem">
-          📱 Para activar tu plan escríbenos por WhatsApp al <strong>8111771092</strong> o manda un correo a <strong>danteefredqg@gmail.com</strong>. Sin contratos, cancela cuando quieras.
+          💳 Pago seguro con tarjeta vía Stripe · Sin contratos · Cancela cuando quieras<br>
+          ¿Prefieres pagar por transferencia? <a href="https://wa.me/528111771092" target="_blank" rel="noopener" style="color:var(--color-accent)">Escríbenos por WhatsApp</a>
         </p>
       </div>
     </div>
@@ -733,6 +741,72 @@
       showToast(`✅ ${tipo}.xlsx descargado`);
     } catch(err) { showToast(err.message, 'error'); }
   }
+
+  // ── Planes / Stripe ───────────────────────────────────────────────────────
+  const PLAN_LABEL = { trial:'Período de prueba', basico:'Básico', profesional:'Pro', enterprise:'Enterprise' };
+
+  async function loadPlanStatus() {
+    try {
+      const s = await api.stripe.status();
+      const bar   = document.getElementById('plan-status-bar');
+      const vence = s.plan_vence ? ` · vence ${formatDate(s.plan_vence)}` : '';
+      const modoTag = s.modo === 'lectura'
+        ? '<span style="color:#A32D2D;font-weight:600"> — MODO LECTURA</span>' : '';
+
+      bar.innerHTML = `Plan activo: <strong>${PLAN_LABEL[s.plan] || s.plan}</strong>${vence}${modoTag}`;
+
+      // Resaltar plan activo
+      ['basico','profesional','enterprise'].forEach(p => {
+        const card = document.getElementById(`card-${p}`);
+        const btn  = document.getElementById(`btn-${p}`);
+        if (!card) return;
+        if (s.plan === p && s.modo === 'activo') {
+          card.style.border = '2px solid var(--color-accent)';
+          btn.textContent   = '✓ Plan actual';
+          btn.disabled      = true;
+        }
+      });
+      document.getElementById('badge-trial').style.display = s.plan === 'trial' ? '' : 'none';
+      document.getElementById('portal-wrap').style.display = s.tiene_suscripcion ? '' : 'none';
+    } catch { /* Stripe no configurado aún — silencioso */ }
+  }
+
+  async function activarPlan(plan) {
+    const btn = document.getElementById(`btn-${plan}`);
+    if (btn) { btn.disabled = true; btn.textContent = 'Redirigiendo...'; }
+    try {
+      const { url } = await api.stripe.checkout(plan);
+      window.location.href = url;
+    } catch(err) {
+      showToast(err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Activar'; }
+    }
+  }
+
+  async function abrirPortal() {
+    try {
+      const { url } = await api.stripe.portal();
+      window.open(url, '_blank');
+    } catch(err) { showToast(err.message, 'error'); }
+  }
+
+  // Abrir tab de planes si viene de Stripe con ?tab=planes o ?plan_activado=1
+  const params = new URLSearchParams(location.search);
+  if (params.get('plan_activado')) {
+    showToast('🎉 ¡Plan activado! Tu cuenta ya está actualizada.');
+    history.replaceState(null, '', location.pathname);
+    const tabBtn = document.querySelector('.tab-btn[data-tab="planes"]');
+    if (tabBtn) tabBtn.click();
+  }
+  if (params.get('tab') === 'planes') {
+    const tabBtn = document.querySelector('.tab-btn[data-tab="planes"]');
+    if (tabBtn) tabBtn.click();
+  }
+
+  // Cargar estado del plan al abrir el tab
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    if (btn.dataset.tab === 'planes') btn.addEventListener('click', loadPlanStatus);
+  });
 </script>
 
 <style>

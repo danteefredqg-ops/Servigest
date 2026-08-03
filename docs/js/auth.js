@@ -10,8 +10,39 @@ function getAppRoot() {
 function requireAuth() {
   if (!api.isAuthenticated()) {
     window.location.href = getAppRoot() + '/pages/auth/login.html';
+    return;
   }
+  // Verificar plan proactivamente — muestra banner si venció sin esperar un write
+  api.stripe.status().then(s => {
+    if (s?.modo === 'lectura') {
+      document.dispatchEvent(new CustomEvent('sg:plan-vencido', { detail: s }));
+    }
+  }).catch(() => {});
 }
+
+// ── Banner de plan vencido (modo lectura) ────────────────────────────────────
+document.addEventListener('sg:plan-vencido', () => {
+  if (document.getElementById('sg-plan-banner')) return;
+  const root   = getAppRoot();
+  const banner = document.createElement('div');
+  banner.id    = 'sg-plan-banner';
+  banner.style.cssText = [
+    'position:fixed;top:0;left:0;right:0;z-index:9997;',
+    'background:#854F0B;color:#fff;padding:10px 16px;',
+    'display:flex;align-items:center;justify-content:center;gap:14px;',
+    'font-size:13px;font-weight:500;',
+  ].join('');
+  const link = document.createElement('a');
+  link.href  = root + '/pages/ajustes/ajustes.html?tab=planes';
+  link.style.cssText = 'background:rgba(255,255,255,.2);padding:4px 12px;border-radius:6px;color:#fff;text-decoration:none;font-weight:600;white-space:nowrap';
+  link.textContent   = 'Renovar plan';
+  const msg = document.createElement('span');
+  msg.textContent = '⚠ Tu plan venció — modo lectura activo. No puedes crear ni modificar registros.';
+  banner.appendChild(msg);
+  banner.appendChild(link);
+  document.body.prepend(banner);
+  document.body.style.paddingTop = (parseInt(document.body.style.paddingTop || '0') + 46) + 'px';
+});
 
 // ── Timeout de sesión por inactividad ────────────────────────────────────────
 (function initSessionTimeout() {

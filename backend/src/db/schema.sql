@@ -435,3 +435,8 @@ ON CONFLICT (empresa_id, modulo) DO NOTHING;
 ALTER TABLE productos  ADD COLUMN IF NOT EXISTS costo_promedio      NUMERIC(12,2) DEFAULT 0;
 ALTER TABLE pagos_cxc  ADD COLUMN IF NOT EXISTS complemento_uuid    TEXT;
 ALTER TABLE pagos_cxc  ADD COLUMN IF NOT EXISTS complemento_facturapi_id TEXT;
+
+-- ── STRIPE / SUSCRIPCIONES ────────────────────────────────────────────────────
+ALTER TABLE empresas   ADD COLUMN IF NOT EXISTS stripe_customer_id     VARCHAR(100);
+ALTER TABLE empresas   ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(100);
+ALTER TABLE empresas   ADD COLUMN IF NOT EXISTS plan_vence             TIMESTAMPTZ;
