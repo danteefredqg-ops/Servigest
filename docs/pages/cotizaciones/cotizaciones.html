@@ -196,7 +196,8 @@
       }
     });
 
-    if (!items.length) return showToast('Agrega al menos un concepto', 'error');
+    if (!cliente_id) return showToast('Selecciona un cliente', 'error');
+    if (!items.length) return showToast('Agrega al menos un concepto con descripción, cantidad y precio', 'error');
 
     try {
       await api.cotizaciones.create({ cliente_id, items });

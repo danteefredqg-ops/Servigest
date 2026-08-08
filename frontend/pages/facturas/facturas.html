@@ -240,10 +240,12 @@
       const price = parseFloat(div.querySelector('.item-price')?.value) || 0;
       if (desc && qty && price) items.push({ descripcion: desc, cantidad: qty, precio_unit: price });
     });
+    const clienteId = document.getElementById('f-cliente').value;
+    if (!clienteId)    return showToast('Selecciona un cliente', 'error');
     if (!items.length) return showToast('Agrega al menos un concepto', 'error');
     try {
       await api.facturas.create({
-        cliente_id: document.getElementById('f-cliente').value,
+        cliente_id: clienteId,
         items,
         notas: document.getElementById('f-notas').value,
       });

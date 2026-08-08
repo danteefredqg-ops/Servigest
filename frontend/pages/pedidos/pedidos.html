@@ -649,6 +649,7 @@ document.getElementById('btn-guardar-pedido').addEventListener('click', async ()
   });
 
   if (!valido || !items.length) return showToast('Completa todos los items (cantidad y precio)', 'error');
+  if (!document.getElementById('p-cliente').value) return showToast('Selecciona un cliente', 'error');
 
   const body = {
     cliente_id:    document.getElementById('p-cliente').value,

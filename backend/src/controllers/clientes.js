@@ -50,9 +50,11 @@ async function create(req, res, next) {
   try {
     const { nombre, telefono, email, direccion, rfc, uso_cfdi, regimen_fiscal, cp, notas } = req.body;
 
-    if (!nombre) {
-      return res.status(400).json({ error: 'El nombre es requerido' });
-    }
+    if (!nombre) return res.status(400).json({ error: 'El nombre es requerido' });
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      return res.status(400).json({ error: 'El correo electrónico no tiene un formato válido' });
+    if (rfc && !/^[A-Z&Ñ]{3,4}\d{6}[A-Z0-9]{3}$/i.test(rfc))
+      return res.status(400).json({ error: 'El RFC no tiene un formato válido' });
 
     const result = await db.query(
       `INSERT INTO clientes

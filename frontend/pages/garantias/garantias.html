@@ -316,7 +316,10 @@ document.getElementById('btn-guardar-gar').addEventListener('click', async () =>
     meses:        parseInt(document.getElementById('gar-meses').value),
     notas:        document.getElementById('gar-notas').value.trim(),
   };
-  if (!body.descripcion) return showToast('Describe qué se reparó', 'error');
+  if (!body.cliente_id)            return showToast('Selecciona un cliente', 'error');
+  if (!body.descripcion)           return showToast('Describe qué se reparó', 'error');
+  if (!body.fecha_inicio)          return showToast('La fecha de inicio es requerida', 'error');
+  if (!body.meses || body.meses <= 0) return showToast('Los meses de garantía deben ser mayor a cero', 'error');
   try {
     await api.garantias.create(body);
     showToast('✅ Garantía registrada');

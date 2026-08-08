@@ -24,6 +24,9 @@ async function create(req, res, next) {
     if (!cliente_id || !monto || !fecha_vence) {
       return res.status(400).json({ error: 'cliente_id, monto y fecha_vence son requeridos' });
     }
+    if (Number(monto) <= 0) {
+      return res.status(400).json({ error: 'El monto debe ser mayor a cero' });
+    }
 
     const clienteCheck = await db.query(
       'SELECT id FROM clientes WHERE id = $1 AND empresa_id = $2',

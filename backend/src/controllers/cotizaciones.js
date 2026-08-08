@@ -55,6 +55,13 @@ async function create(req, res, next) {
     );
     if (!clienteCheck.rows[0]) return res.status(400).json({ error: 'Cliente no válido' });
 
+    // Validar que cada item tenga cantidad y precio positivos
+    for (const item of items) {
+      if (!item.descripcion?.trim()) return res.status(400).json({ error: 'Cada concepto requiere una descripción' });
+      if (Number(item.cantidad) <= 0)       return res.status(400).json({ error: 'La cantidad de cada concepto debe ser mayor a cero' });
+      if (Number(item.precio_unitario) <= 0) return res.status(400).json({ error: 'El precio de cada concepto debe ser mayor a cero' });
+    }
+
     // Calcular totales desde los items (no confiar en el cliente)
     const itemsConSubtotal = items.map(item => ({
       ...item,

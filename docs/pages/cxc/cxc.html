@@ -269,7 +269,9 @@
       fecha_vence: document.getElementById('cxc-vence').value,
       notas:       document.getElementById('cxc-notas').value,
     };
-    if (!body.monto || !body.fecha_vence) return showToast('Monto y fecha son requeridos', 'error');
+    if (!body.cliente_id)       return showToast('Selecciona un cliente', 'error');
+    if (!body.monto || body.monto <= 0) return showToast('El monto debe ser mayor a cero', 'error');
+    if (!body.fecha_vence)      return showToast('La fecha de vencimiento es requerida', 'error');
     try {
       await api.cxc.create(body);
       showToast('Cuenta por cobrar creada');
