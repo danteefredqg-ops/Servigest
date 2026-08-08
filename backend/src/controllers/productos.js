@@ -40,6 +40,7 @@ async function create(req, res, next) {
     const { nombre, descripcion, sku, unidad, clave_sat, precio, costo, stock, stock_minimo,
             proveedor, fecha_compra } = req.body;
     if (!nombre) return res.status(400).json({ error: 'El nombre es requerido' });
+    if (precio !== undefined && Number(precio) < 0) return res.status(400).json({ error: 'El precio no puede ser negativo' });
 
     const result = await db.query(
       `INSERT INTO productos

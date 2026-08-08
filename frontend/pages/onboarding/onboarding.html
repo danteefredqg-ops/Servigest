@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ServiGest — Bienvenido</title>
+  <link rel="stylesheet" href="../../css/base.css" />
+  <style>
+    body { min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--color-bg-secondary); }
+
+    .ob-card {
+      background:var(--color-bg);
+      border:1px solid var(--color-border);
+      border-radius:var(--radius-xl, 16px);
+      padding:2.5rem 2rem;
+      max-width:520px;
+      width:100%;
+      margin:2rem 1rem;
+      box-shadow:0 8px 32px rgba(0,0,0,.08);
+    }
+
+    .ob-logo { display:flex; align-items:center; gap:8px; margin-bottom:2rem; }
+    .ob-logo-dot { width:10px; height:10px; border-radius:50%; background:var(--color-accent); }
+    .ob-logo-text { font-size:18px; font-weight:700; color:var(--color-text); }
+
+    .ob-title { font-size:1.5rem; font-weight:700; color:var(--color-text); margin-bottom:.4rem; }
+    .ob-sub   { font-size:14px; color:var(--color-text-muted); margin-bottom:2rem; }
+
+    .ob-progress { height:6px; background:var(--color-bg-tertiary); border-radius:3px; margin-bottom:2rem; overflow:hidden; }
+    .ob-progress-fill { height:100%; background:var(--color-accent); border-radius:3px; transition:width .4s ease; }
+
+    .ob-steps { display:flex; flex-direction:column; gap:.75rem; margin-bottom:2rem; }
+
+    .ob-step {
+      display:flex; align-items:center; gap:1rem; padding:1rem 1.1rem;
+      border:1.5px solid var(--color-border); border-radius:var(--radius-lg, 10px);
+      cursor:pointer; transition:border-color .15s, background .15s;
+    }
+    .ob-step:hover { border-color:var(--color-accent); background:var(--color-bg-secondary); }
+    .ob-step.hecho { border-color:var(--color-accent); background:#EAF3DE; }
+    @media (prefers-color-scheme:dark) { .ob-step.hecho { background:rgba(59,109,17,.15); } }
+    :root[data-theme="dark"] .ob-step.hecho { background:rgba(59,109,17,.15); }
+
+    .ob-step-check {
+      width:28px; height:28px; border-radius:50%; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+      font-size:13px; font-weight:700;
+      border:2px solid var(--color-border);
+      color:var(--color-text-muted);
+    }
+    .ob-step.hecho .ob-step-check {
+      background:var(--color-accent); border-color:var(--color-accent); color:#fff;
+    }
+    .ob-step-body { flex:1; min-width:0; }
+    .ob-step-titulo { font-size:14px; font-weight:600; color:var(--color-text); }
+    .ob-step-desc   { font-size:12px; color:var(--color-text-muted); margin-top:2px; }
+    .ob-step-badge  { font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px; white-space:nowrap; }
+    .badge-done   { background:#EAF3DE; color:#3B6D11; }
+    .badge-pendiente { background:var(--color-bg-tertiary); color:var(--color-text-muted); }
+
+    .ob-actions { display:flex; flex-direction:column; gap:.6rem; }
+    .ob-skip { background:none; border:none; color:var(--color-text-muted); font-size:13px; cursor:pointer; padding:4px 0; text-decoration:underline; align-self:center; }
+    .ob-skip:hover { color:var(--color-text); }
+  </style>
+</head>
+<body>
+
+<div class="ob-card" id="ob-card">
+  <div class="ob-logo">
+    <div class="ob-logo-dot"></div>
+    <div class="ob-logo-text">ServiGest</div>
+  </div>
+
+  <div class="ob-title">¡Bienvenido! 🎉</div>
+  <p class="ob-sub" id="ob-sub">Sigue estos pasos para tener tu taller listo en minutos.</p>
+
+  <div class="ob-progress"><div class="ob-progress-fill" id="ob-bar" style="width:0%"></div></div>
+
+  <div class="ob-steps" id="ob-steps">
+    <div style="text-align:center;padding:2rem;color:var(--color-text-muted);font-size:13px">Cargando...</div>
+  </div>
+
+  <div class="ob-actions">
+    <button class="btn btn-primary" id="btn-dashboard" onclick="irAlDashboard()">Ir al panel principal →</button>
+    <button class="ob-skip" onclick="irAlDashboard()">Saltar configuración por ahora</button>
+  </div>
+</div>
+
+<script src="../../js/config.js"></script>
+<script src="../../js/api.js"></script>
+<script>
+  if (!api.isAuthenticated()) {
+    window.location.href = '../auth/login.html';
+  }
+
+  const DESTINOS = {
+    empresa:  '../ajustes/ajustes.html?tab=empresa',
+    cliente:  '../clientes/clientes.html',
+    producto: '../productos/productos.html',
+    pedido:   '../pedidos/pedidos.html',
+  };
+
+  const ICONOS = {
+    empresa:  '🏢',
+    cliente:  '👥',
+    producto: '📦',
+    pedido:   '🛒',
+  };
+
+  async function cargar() {
+    try {
+      const data = await api.get('/onboarding');
+      const { pasos, completados, total, porcentaje } = data;
+
+      document.getElementById('ob-bar').style.width = porcentaje + '%';
+
+      if (porcentaje === 100) {
+        document.getElementById('ob-sub').textContent = '¡Todo listo! Tu cuenta está completamente configurada.';
+        document.getElementById('btn-dashboard').textContent = 'Ir al panel principal →';
+      } else {
+        document.getElementById('ob-sub').textContent =
+          `${completados} de ${total} pasos completados — ${100 - porcentaje}% restante.`;
+      }
+
+      document.getElementById('ob-steps').innerHTML = pasos.map(p => `
+        <div class="ob-step ${p.hecho ? 'hecho' : ''}" onclick="irAPaso('${p.id}', ${p.hecho})">
+          <div class="ob-step-check">${p.hecho ? '✓' : ICONOS[p.id] || '○'}</div>
+          <div class="ob-step-body">
+            <div class="ob-step-titulo">${p.titulo}</div>
+            <div class="ob-step-desc">${p.descripcion}</div>
+          </div>
+          <span class="ob-step-badge ${p.hecho ? 'badge-done' : 'badge-pendiente'}">${p.hecho ? 'Listo' : 'Pendiente'}</span>
+        </div>
+      `).join('');
+    } catch(e) {
+      document.getElementById('ob-steps').innerHTML =
+        '<div style="text-align:center;color:var(--color-text-muted);font-size:13px;padding:1rem">No se pudo cargar el progreso</div>';
+    }
+  }
+
+  function irAPaso(id, hecho) {
+    if (!hecho) {
+      const dest = DESTINOS[id];
+      if (dest) window.location.href = dest;
+    }
+  }
+
+  async function irAlDashboard() {
+    try { await api.post('/onboarding/completar', {}); } catch {}
+    const user = api.getUser();
+    if (user) { user.onboarding_ok = true; api.setUser(user); }
+    window.location.href = '../dashboard/dashboard.html';
+  }
+
+  cargar();
+</script>
+</body>
+</html>

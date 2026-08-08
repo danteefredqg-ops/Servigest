@@ -210,7 +210,14 @@ function renderTabla() {
   if (estado) lista = lista.filter(g => g.estado === estado);
 
   if (!lista.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--color-text-muted);padding:2rem">Sin garantías</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:3rem 2rem">
+        <div style="color:var(--color-text-muted)">
+          <div style="font-size:2.5rem;margin-bottom:.75rem">🛡️</div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:.4rem;color:var(--color-text)">Sin garantías registradas</div>
+          <div style="font-size:13px;margin-bottom:1.25rem">Registra garantías de equipos reparados para darle seguimiento</div>
+          <button class="btn btn-primary btn-sm" onclick="document.getElementById('btn-nueva').click()">+ Registrar garantía</button>
+        </div>
+      </td></tr>`;
     return;
   }
 

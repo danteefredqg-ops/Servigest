@@ -95,6 +95,31 @@ async function create(req, res, next) {
       return { ...item, cantidad, precio_unit, descuento, subtotal: sub };
     });
 
+    // Verificar stock suficiente antes de continuar (evita stock negativo silencioso)
+    const idsConProducto = itemsValidos.filter(i => i.producto_id);
+    if (idsConProducto.length) {
+      const stockRows = await client.query(
+        `SELECT id, nombre, stock FROM productos
+         WHERE id = ANY($1) AND empresa_id = $2`,
+        [idsConProducto.map(i => i.producto_id), req.user.empresa_id]
+      );
+      const stockMap = Object.fromEntries(stockRows.rows.map(r => [r.id, r]));
+      // Agrupa por producto_id para manejar el mismo producto en múltiples ítems
+      const demanda = {};
+      for (const item of idsConProducto) {
+        demanda[item.producto_id] = (demanda[item.producto_id] || 0) + item.cantidad;
+      }
+      for (const [pid, cant] of Object.entries(demanda)) {
+        const p = stockMap[pid];
+        if (p && p.stock < cant) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({
+            error: `Stock insuficiente: "${p.nombre}" tiene ${p.stock} unidad(es) disponible(s), se requieren ${cant}.`,
+          });
+        }
+      }
+    }
+
     const impuestos = iva ? subtotal * 0.16 : 0;
     const total     = subtotal + impuestos;
 

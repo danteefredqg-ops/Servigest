@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ServiGest — Cuentas por Pagar</title>
+  <title>ServiGest — Pagos a Proveedores</title>
   <link rel="stylesheet" href="../../css/base.css" />
   <link rel="stylesheet" href="../../css/components.css" />
 </head>
@@ -22,10 +22,10 @@
   <main class="main-content">
     <div class="page-header">
       <div>
-        <h1 class="page-title">Cuentas por Pagar</h1>
-        <p class="page-subtitle">Deudas a proveedores y compromisos de pago</p>
+        <h1 class="page-title">Pagos a proveedores</h1>
+        <p class="page-subtitle">Compromisos de pago y deudas a proveedores</p>
       </div>
-      <button class="btn btn-primary" id="btn-nueva">+ Nueva CxP</button>
+      <button class="btn btn-primary" id="btn-nueva">+ Nuevo pago</button>
     </div>
 
     <!-- Tarjetas resumen -->
@@ -203,7 +203,12 @@
       const lista = await api.cxp.list({ estado: filtroEstado });
       const tbody = document.getElementById('tabla-cxp');
       if (!lista.length) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Sin cuentas por pagar</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--color-text-muted)"><div style="color:var(--color-text-muted)">
+              <div style="font-size:2.5rem;margin-bottom:.75rem">🏪</div>
+              <div style="font-size:15px;font-weight:600;margin-bottom:.4rem;color:var(--color-text)">Sin pagos a proveedores</div>
+              <div style="font-size:13px;margin-bottom:1.25rem">Registra lo que debes a tus proveedores para no perder vencimientos</div>
+              <button class="btn btn-primary btn-sm" onclick="document.getElementById('btn-nueva').click()">+ Nuevo pago</button>
+            </div></td></tr>`;
         return;
       }
       tbody.innerHTML = lista.map(c => {
@@ -278,7 +283,7 @@
         compra_id:         document.getElementById('n-compra-id').value   || null,
         notas:             document.getElementById('n-notas').value       || null,
       });
-      showToast('CxP registrada');
+      showToast('Pago registrado');
       closeModal('modal-nueva');
       loadCxp();
       loadResumen();
@@ -349,7 +354,7 @@
     if (!confirm('¿Eliminar esta cuenta por pagar?')) return;
     try {
       await api.cxp.remove(id);
-      showToast('CxP eliminada');
+      showToast('Pago eliminado');
       loadCxp();
       loadResumen();
     } catch(err) { showToast(err.message, 'error'); }

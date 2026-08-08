@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ServiGest — Cuentas por Cobrar</title>
+  <title>ServiGest — Cobros Pendientes</title>
   <link rel="stylesheet" href="../../css/base.css" />
   <link rel="stylesheet" href="../../css/components.css" />
   <style>
@@ -31,10 +31,10 @@
   <main class="main-content">
     <div class="page-header">
       <div>
-        <h1 class="page-title">Cuentas por cobrar</h1>
-        <p class="page-subtitle">Control de adeudos y pagos pendientes</p>
+        <h1 class="page-title">Cobros pendientes</h1>
+        <p class="page-subtitle">Control de adeudos y pagos por cobrar</p>
       </div>
-      <button class="btn btn-primary" id="btn-nueva">+ Nueva cuenta</button>
+      <button class="btn btn-primary" id="btn-nueva">+ Nuevo cobro</button>
     </div>
 
     <!-- Resumen -->
@@ -200,7 +200,14 @@
       const lista = await api.cxc.list({ estado: filtroEstado });
       const tbody = document.getElementById('tabla-cxc');
       if (!lista.length) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Sin cuentas ${filtroEstado || 'registradas'}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--color-text-muted)">${filtroEstado
+          ? `Sin cobros con estado "${filtroEstado}"`
+          : `<div style="color:var(--color-text-muted)">
+              <div style="font-size:2.5rem;margin-bottom:.75rem">💰</div>
+              <div style="font-size:15px;font-weight:600;margin-bottom:.4rem;color:var(--color-text)">Sin cobros pendientes</div>
+              <div style="font-size:13px;margin-bottom:1.25rem">Registra lo que tus clientes te deben y lleva el control de pagos</div>
+              <button class="btn btn-primary btn-sm" onclick="document.getElementById('btn-nueva').click()">+ Nuevo cobro</button>
+            </div>`}</td></tr>`;
         return;
       }
       tbody.innerHTML = lista.map(c => {

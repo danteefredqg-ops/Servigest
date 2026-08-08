@@ -91,7 +91,14 @@
     try {
       const cots = await api.cotizaciones.list();
       if (cots.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);padding:2rem">Sin cotizaciones aún</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:3rem 2rem">
+        <div style="color:var(--color-text-muted)">
+          <div style="font-size:2.5rem;margin-bottom:.75rem">📄</div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:.4rem;color:var(--color-text)">Aún no hay cotizaciones</div>
+          <div style="font-size:13px;margin-bottom:1.25rem">Envía presupuestos a tus clientes y convierte aprobados en pedidos</div>
+          <button class="btn btn-primary btn-sm" onclick="document.getElementById('btn-nueva').click()">+ Crear cotización</button>
+        </div>
+      </td></tr>`;
         return;
       }
       tbody.innerHTML = cots.map(c => `

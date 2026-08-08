@@ -145,7 +145,14 @@
       const f = await api.facturas.list({ estado: filtroEstado });
       const tbody = document.getElementById('tabla-facturas');
       if (!f.length) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Sin facturas aún</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:3rem 2rem">
+        <div style="color:var(--color-text-muted)">
+          <div style="font-size:2.5rem;margin-bottom:.75rem">🧾</div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:.4rem;color:var(--color-text)">Aún no hay facturas</div>
+          <div style="font-size:13px;margin-bottom:1.25rem">Emite tu primer CFDI y tímbralo ante el SAT desde aquí</div>
+          <button class="btn btn-primary btn-sm" onclick="document.getElementById('btn-nueva').click()">+ Nueva factura</button>
+        </div>
+      </td></tr>`;
         return;
       }
       tbody.innerHTML = f.map(fac => {

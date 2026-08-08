@@ -240,7 +240,17 @@
   function renderTabla(lista) {
     const tbody = document.getElementById('tabla-productos');
     if (!lista.length) {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--color-text-muted)">Sin productos aún. Agrega el primero o importa desde Excel.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:3rem 2rem">
+        <div style="color:var(--color-text-muted)">
+          <div style="font-size:2.5rem;margin-bottom:.75rem">📦</div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:.4rem;color:var(--color-text)">Aún no hay productos</div>
+          <div style="font-size:13px;margin-bottom:1.25rem">Agrega tu inventario de refacciones, materiales o productos de venta</div>
+          <div style="display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap">
+            <button class="btn btn-primary btn-sm" onclick="document.getElementById('btn-nuevo').click()">+ Agregar producto</button>
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('btn-importar').click()">↑ Importar Excel</button>
+          </div>
+        </div>
+      </td></tr>`;
       return;
     }
     tbody.innerHTML = lista.map(p => {
@@ -351,6 +361,10 @@
       fecha_compra: document.getElementById('p-fecha-compra').value || null,
     };
     if (!body.nombre) return showToast('El nombre es requerido', 'error');
+    if (body.precio === 0 && body.unidad !== 'servicio') {
+      const ok = confirm('Este producto tiene precio $0. ¿Es correcto? Si es un producto de venta, revisa el precio antes de guardar.');
+      if (!ok) return;
+    }
     try {
       if (id) { await api.productos.update(id, body); showToast('Producto actualizado'); }
       else    { await api.productos.create(body);     showToast('Producto creado'); }

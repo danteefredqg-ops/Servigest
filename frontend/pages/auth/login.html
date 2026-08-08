@@ -91,9 +91,19 @@
 <script src="../../js/config.js"></script>
 <script src="../../js/api.js"></script>
 <script>
-  // Si ya está autenticado, ir al dashboard
+  // Si ya está autenticado, ir al dashboard (o onboarding si es primer login)
   if (api.isAuthenticated()) {
-    window.location.href = '../dashboard/dashboard.html';
+    const u = api.getUser();
+    window.location.href = (u && u.onboarding_ok === false)
+      ? '../onboarding/onboarding.html'
+      : '../dashboard/dashboard.html';
+  }
+
+  function destino() {
+    const u = api.getUser();
+    return (u && u.onboarding_ok === false)
+      ? '../onboarding/onboarding.html'
+      : '../dashboard/dashboard.html';
   }
 
   function toggleForm(show) {
@@ -115,7 +125,7 @@
 
     try {
       await api.login(email, password);
-      window.location.href = '../dashboard/dashboard.html';
+      window.location.href = destino();
     } catch (err) {
       showError('login-error', err.message);
     }
@@ -130,7 +140,7 @@
 
     try {
       await api.register(nombre, email, password, empresa);
-      window.location.href = '../dashboard/dashboard.html';
+      window.location.href = destino();
     } catch (err) {
       showError('register-error', err.message);
     }
